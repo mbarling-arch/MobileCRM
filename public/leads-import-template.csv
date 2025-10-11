@@ -1,0 +1,7 @@
+firstName,lastName,email,phone,status,source,address,city,state,zipCode,notes,estimatedValue,preferredContactMethod,followUpDate
+John,Smith,john.smith@email.com,555-123-4567,New,Website,"123 Main St","Springfield","IL",62701,"Interested in 3BR/2BA models",75000,Email,2025-10-15
+Jane,Doe,jane.doe@email.com,555-234-5678,Contacted,Referral,"456 Oak Ave","Chicago","IL",60601,"Looking for manufactured home community",85000,Phone,2025-10-20
+Mike,Johnson,mike.j@email.com,555-345-6789,Qualified,Facebook Ad,"789 Pine Rd","Peoria","IL",61602,"Pre-qualified for financing",95000,Email,2025-10-18
+Sarah,Williams,sarah.w@email.com,555-456-7890,Nurturing,Walk-in,"321 Elm St","Rockford","IL",61101,"Wants to see inventory next week",68000,Text,2025-10-22
+Tom,Brown,tom.brown@email.com,555-567-8901,New,Google Search,"654 Maple Dr","Naperville","IL",60540,"First-time home buyer",72000,Email,2025-10-16
+

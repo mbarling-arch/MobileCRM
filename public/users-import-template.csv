@@ -1,0 +1,7 @@
+location,firstName,lastName,email,role,password
+Main Office,John,Smith,john.smith@company.com,sales,Test123!
+Main Office,Jane,Doe,jane.doe@company.com,general_manager,Manager123!
+North Branch,Mike,Johnson,mike.j@company.com,sales,Sales123!
+North Branch,Sarah,Williams,sarah.w@company.com,operations,Ops123!
+South Location,Tom,Brown,tom.brown@company.com,leadership,Leader123!
+

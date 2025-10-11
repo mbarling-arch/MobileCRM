@@ -19,11 +19,11 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon
 } from '@mui/icons-material';
-import CRMLayout from '../CRMLayout';
-import DataTable from '../ui/DataTable';
+import UnifiedLayout from '../UnifiedLayout';
+import ListContainer from '../ListContainer';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { useUser } from '../../UserContext';
+import { useUser } from '../../hooks/useUser';
 
 const PRIORITY_COLORS = {
   low: '#4caf50',
@@ -280,62 +280,52 @@ function TaskList({ type }) {
     return { all, pending, completed };
   };
 
+  // Get title based on type
+  const getTitle = () => {
+    switch (type) {
+      case 'today':
+        return "Today's Tasks";
+      case 'past-due':
+        return 'Past Due Tasks';
+      case 'team':
+        return "My Team's Tasks";
+      default:
+        return getPageTitle();
+    }
+  };
+
   const tabCounts = getTabCounts();
 
   return (
-    <CRMLayout>
-      <Box sx={{ p: 3 }}>
-        <Stack spacing={3}>
-          {/* Header */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Box>
-              <Typography variant="h4" gutterBottom>
-                {getPageTitle()}
-              </Typography>
-              <Typography variant="body1" color="text.secondary">
-                {filteredTasks.length} task{filteredTasks.length !== 1 ? 's' : ''}
-              </Typography>
-            </Box>
-            <Button
-              variant="outlined"
-              onClick={() => navigate('/crm/tasks')}
-              sx={{ minWidth: 120 }}
-            >
-              Back to Dashboard
-            </Button>
-          </Box>
-
-          {/* Status Tabs */}
-          <Box sx={{ mb: 2 }}>
-            <Tabs
-              value={activeTab}
-              onChange={(e, newValue) => setActiveTab(newValue)}
-              sx={{ borderBottom: 1, borderColor: 'divider' }}
-            >
-              <Tab
-                label={`All (${tabCounts.all})`}
-                value="all"
-              />
-              <Tab
-                label={`Pending (${tabCounts.pending})`}
-                value="pending"
-              />
-              <Tab
-                label={`Completed (${tabCounts.completed})`}
-                value="completed"
-              />
-            </Tabs>
-          </Box>
-
-          <DataTable
-            columns={TASK_COLUMNS}
-            rows={filteredTasks}
-            dense={false}
-            variant="embedded"
-          />
-        </Stack>
-      </Box>
-    </CRMLayout>
+    <UnifiedLayout mode="crm">
+      <ListContainer
+        title={getTitle()}
+        subtitle={`${filteredTasks.length} task${filteredTasks.length !== 1 ? 's' : ''}`}
+        backButton={
+          <Button
+            variant="outlined"
+            onClick={() => navigate('/crm/tasks')}
+            sx={{ minWidth: 120 }}
+          >
+            Back to Dashboard
+          </Button>
+        }
+        tabs={type ? undefined : [
+          { label: `All (${tabCounts.all})`, value: 'all' },
+          { label: `Pending (${tabCounts.pending})`, value: 'pending' },
+          { label: `Completed (${tabCounts.completed})`, value: 'completed' }
+        ]}
+        activeTab={type ? undefined : activeTab}
+        onTabChange={type ? undefined : setActiveTab}
+        tableProps={{
+          columns: TASK_COLUMNS,
+          rows: filteredTasks,
+          dense: true,
+          variant: 'embedded',
+          square: true
+        }}
+      />
+    </UnifiedLayout>
   );
 }
 

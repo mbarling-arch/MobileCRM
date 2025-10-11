@@ -1,47 +1,61 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Dialog, Box, Stack, Typography, Button, TextField, MenuItem } from '@mui/material';
+import { Dialog, Box, Stack, Typography, Button, TextField, MenuItem, Chip, Paper } from '@mui/material';
 import { db, storage } from '../../firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
-function AddDocumentDialog({ open, onClose, onSave, initial }) {
-  const [form, setForm] = useState({
-    name: '',
-    type: 'document',
-    category: 'Customer Documents',
-    description: ''
-  });
-  const [uploadedFile, setUploadedFile] = useState(null);
+// Quick document options for each category
+const QUICK_DOCUMENTS = {
+  'Customer Documents': [
+    'Driver License',
+    'Co Buyer Driver License',
+    'Buyer Social',
+    'Co Buyer Social',
+    'Interview Sheet'
+  ],
+  'Credit Application Documents': [
+    'Credit Application',
+    'Credit Report',
+    'Calculator Worksheet',
+    'Signed Bank Disclosures',
+    'Arbitration Agreement',
+    'Special Deposit Agreement',
+    'Credit Authorization'
+  ],
+  'Income Documents': [
+    'Buyer Paystubs',
+    'Co Buyer Pay Stubs',
+    'W2\'s',
+    'Tax Returns',
+    'Bank Statements'
+  ]
+};
+
+function AddDocumentDialog({ open, onClose, companyId, docId, docType }) {
+  const [documents, setDocuments] = useState([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef();
 
+  const updateDocument = (index, field, value) => {
+    setDocuments(prev => prev.map((doc, i) =>
+      i === index ? { ...doc, [field]: value } : doc
+    ));
+  };
+
   useEffect(() => {
-    if (initial) {
-      setForm({
-        name: initial.name || '',
-        type: initial.type || 'document',
-        category: initial.category || 'Customer Documents',
-        description: initial.description || ''
-      });
-      setUploadedFile(initial.file || null);
-    } else {
-      setForm({
-        name: '',
-        type: 'document',
-        category: 'Customer Documents',
-        description: ''
-      });
-      setUploadedFile(null);
+    if (open) {
+      setDocuments([]);
+      setUploading(false);
     }
-    setUploading(false);
-  }, [initial, open]);
+  }, [open]);
 
   const handleChange = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }));
 
   const handleFileSelect = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+    const files = Array.from(event.target.files);
+    if (files.length === 0) return;
 
-    // Validate file type (allow PDFs, docs, images, etc.)
+    // Validate file types (allow PDFs, docs, images, etc.)
     const allowedTypes = [
       'application/pdf',
       'application/msword',
@@ -50,47 +64,37 @@ function AddDocumentDialog({ open, onClose, onSave, initial }) {
       'application/rtf',
       'image/jpeg',
       'image/png',
-      'image/gif'
+      'image/gif',
+      'image/webp'
     ];
 
-    if (!allowedTypes.includes(file.type)) {
-      alert('Please select a valid file (PDF, DOC, DOCX, TXT, RTF, Images)');
-      return;
-    }
-
-    // Validate file size (max 25MB for documents)
-    if (file.size > 25 * 1024 * 1024) {
-      alert('File size must be less than 25MB');
-      return;
-    }
-
-    setUploading(true);
-    try {
-      const companyId = 'demo-company'; // We'll get this from userProfile in production
-      const fileName = `${Date.now()}_${file.name}`;
-      const storageRef = ref(storage, `companies/${companyId}/documents/${fileName}`);
-
-      await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(storageRef);
-
-      setUploadedFile({
-        name: file.name,
-        url: downloadURL,
-        path: `companies/${companyId}/documents/${fileName}`,
-        size: file.size,
-        type: file.type
-      });
-
-      // Auto-set document name if not provided
-      if (!form.name.trim()) {
-        setForm(f => ({ ...f, name: file.name.replace(/\.[^/.]+$/, '') }));
+    const validFiles = [];
+    for (const file of files) {
+      if (!allowedTypes.includes(file.type)) {
+        alert(`File "${file.name}" is not a supported type. Please use PDF, Word, Text, or Image files.`);
+        continue;
       }
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      alert(`Error uploading file: ${error.message}`);
-    } finally {
-      setUploading(false);
+
+      // Validate file size (max 25MB for documents)
+      if (file.size > 25 * 1024 * 1024) {
+        alert(`File "${file.name}" is too large. Maximum size is 25MB.`);
+        continue;
+      }
+
+      validFiles.push(file);
     }
+
+    if (validFiles.length === 0) return;
+
+    // Create document entries for each valid file
+    const newDocuments = validFiles.map(file => ({
+      name: file.name.replace(/\.[^/.]+$/, ''), // Remove extension
+      category: 'Customer Documents',
+      description: '',
+      file: file
+    }));
+
+    setDocuments(prev => [...prev, ...newDocuments]);
   };
 
   const handleRemoveFile = async () => {
@@ -109,141 +113,192 @@ function AddDocumentDialog({ open, onClose, onSave, initial }) {
   };
 
   const handleSubmit = async () => {
-    if (!form.name.trim() || !uploadedFile) {
-      alert('Please provide a document name and upload a file');
+    if (documents.length === 0) {
+      alert('Please select at least one file to upload');
       return;
     }
 
-    const formData = {
-      ...form,
-      file: uploadedFile
-    };
+    // Check that all documents have names
+    const invalidDocs = documents.filter(doc => !doc.name.trim());
+    if (invalidDocs.length > 0) {
+      alert('Please provide names for all documents');
+      return;
+    }
 
-    onSave(formData);
+    setUploading(true);
+    try {
+      const prospectId = docId;
+
+      // Upload each document
+      for (const doc of documents) {
+        const fileName = `${Date.now()}_${doc.file.name}`;
+        const storageRef = ref(storage, `companies/${companyId}/${docType}/${prospectId}/documents/${fileName}`);
+
+        await uploadBytes(storageRef, doc.file);
+        const downloadURL = await getDownloadURL(storageRef);
+
+        const docData = {
+          name: doc.name,
+          category: doc.category,
+          description: doc.description,
+          url: downloadURL,
+          type: doc.file.type,
+          size: doc.file.size,
+          createdAt: serverTimestamp(),
+          createdBy: 'system' // We'll update this when we have user info
+        };
+
+        await addDoc(collection(db, 'companies', companyId, docType, prospectId, 'documents'), docData);
+      }
+
+      onClose();
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Failed to upload documents. Please try again.');
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
     <Dialog
       open={open}
       onClose={onClose}
-      maxWidth="md"
+      maxWidth="lg"
       fullWidth
       PaperProps={{ sx: { backgroundColor: '#2a2746', border: '1px solid rgba(255,255,255,0.08)' } }}
     >
       <Box sx={{ p: 3 }}>
         <Typography variant="h6" sx={{ color: 'white', fontWeight: 600, mb: 3 }}>
-          {initial ? 'Edit Document' : 'Upload Document'}
+          Upload Documents
         </Typography>
 
         <Stack spacing={3}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-            <TextField
-              fullWidth
-              required
-              label="Document Name"
-              value={form.name}
-              onChange={handleChange('name')}
-              sx={dialogFieldSx}
-            />
-            <TextField
-              fullWidth
-              label="Document Type"
-              value={form.type}
-              onChange={handleChange('type')}
-              select
-              sx={dialogFieldSx}
-            >
-              <MenuItem value="document">Document</MenuItem>
-              <MenuItem value="contract">Contract</MenuItem>
-              <MenuItem value="policy">Policy</MenuItem>
-              <MenuItem value="form">Form</MenuItem>
-              <MenuItem value="image">Image</MenuItem>
-              <MenuItem value="other">Other</MenuItem>
-            </TextField>
-          </Stack>
-
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-            <TextField
-              fullWidth
-              label="Category"
-              value={form.category}
-              onChange={handleChange('category')}
-              select
-              sx={dialogFieldSx}
-            >
-              <MenuItem value="Customer Documents">Customer Documents</MenuItem>
-              <MenuItem value="Credit Application Documents">Credit Application Documents</MenuItem>
-              <MenuItem value="Income Documents">Income Documents</MenuItem>
-              <MenuItem value="Approval Documents">Approval Documents</MenuItem>
-              <MenuItem value="Condition Documents">Condition Documents</MenuItem>
-              <MenuItem value="Home Documents">Home Documents</MenuItem>
-              <MenuItem value="Closing Documents">Closing Documents</MenuItem>
-              <MenuItem value="Funding Documents">Funding Documents</MenuItem>
-              <MenuItem value="Construction Documents">Construction Documents</MenuItem>
-            </TextField>
-          </Stack>
-
-          <TextField
-            fullWidth
-            multiline
-            rows={2}
-            label="Description (Optional)"
-            value={form.description}
-            onChange={handleChange('description')}
-            sx={dialogFieldSx}
-          />
-
+          {/* File Selection */}
           <Box>
             <Typography variant="subtitle2" sx={{ color: 'white', mb: 1 }}>
-              Upload File *
+              Select Files *
             </Typography>
             <input
               ref={fileInputRef}
               type="file"
-              accept=".pdf,.doc,.docx,.txt,.rtf,.jpg,.jpeg,.png,.gif"
+              multiple
+              accept=".pdf,.doc,.docx,.txt,.rtf,.jpg,.jpeg,.png,.gif,.webp"
               onChange={handleFileSelect}
-              style={{ display: 'none' }}
-              disabled={uploading}
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.2)',
+                borderRadius: '4px',
+                color: 'white',
+                cursor: 'pointer'
+              }}
             />
-            {!uploadedFile ? (
-              <Button
-                variant="outlined"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                sx={{
-                  color: '#90caf9',
-                  borderColor: 'rgba(144, 202, 249, 0.5)',
-                  '&:hover': { borderColor: '#90caf9' }
-                }}
-              >
-                {uploading ? 'Uploading...' : 'Choose File'}
-              </Button>
-            ) : (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2, bgcolor: 'rgba(255,255,255,0.05)', borderRadius: 1 }}>
-                <Typography sx={{ color: 'white', flexGrow: 1 }}>
-                  📄 {uploadedFile.name}
-                  <br />
-                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                    {(uploadedFile.size / 1024 / 1024).toFixed(2)} MB • {uploadedFile.type}
-                  </Typography>
-                </Typography>
-                <Button
-                  size="small"
-                  onClick={() => window.open(uploadedFile.url, '_blank')}
-                  sx={{ color: '#90caf9' }}
-                >
-                  View
-                </Button>
-                <Button
-                  size="small"
-                  onClick={handleRemoveFile}
-                  sx={{ color: '#f44336' }}
-                >
-                  Remove
-                </Button>
-              </Box>
-            )}
+            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', mt: 1, display: 'block' }}>
+              Select multiple files at once. Supported: PDF, Word, Text, Images (max 25MB each)
+            </Typography>
           </Box>
+
+          {/* Document List */}
+          {documents.length > 0 && (
+            <Box>
+              <Typography variant="subtitle1" sx={{ color: 'white', mb: 2, fontWeight: 600 }}>
+                Documents to Upload ({documents.length})
+              </Typography>
+
+              <Stack spacing={2}>
+                {documents.map((doc, index) => (
+                  <Paper key={index} sx={{ p: 2, backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    <Stack spacing={2}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="subtitle2" sx={{ color: 'white', fontWeight: 600 }}>
+                          📄 {doc.file.name}
+                        </Typography>
+                        <Button
+                          size="small"
+                          onClick={() => setDocuments(prev => prev.filter((_, i) => i !== index))}
+                          sx={{ color: '#f44336', minWidth: 'auto', p: 0.5 }}
+                        >
+                          ✕
+                        </Button>
+                      </Box>
+
+                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                        <TextField
+                          fullWidth
+                          required
+                          label="Document Name"
+                          value={doc.name}
+                          onChange={(e) => updateDocument(index, 'name', e.target.value)}
+                          sx={dialogFieldSx}
+                          size="small"
+                        />
+                        <TextField
+                          fullWidth
+                          label="Category"
+                          value={doc.category}
+                          onChange={(e) => updateDocument(index, 'category', e.target.value)}
+                          select
+                          sx={dialogFieldSx}
+                          size="small"
+                        >
+                          <MenuItem value="Customer Documents">Customer Documents</MenuItem>
+                          <MenuItem value="Credit Application Documents">Credit Application Documents</MenuItem>
+                          <MenuItem value="Income Documents">Income Documents</MenuItem>
+                          <MenuItem value="Approval Documents">Approval Documents</MenuItem>
+                          <MenuItem value="Condition Documents">Condition Documents</MenuItem>
+                          <MenuItem value="Home Documents">Home Documents</MenuItem>
+                          <MenuItem value="Closing Documents">Closing Documents</MenuItem>
+                          <MenuItem value="Funding Documents">Funding Documents</MenuItem>
+                          <MenuItem value="Construction Documents">Construction Documents</MenuItem>
+                        </TextField>
+                      </Stack>
+
+                      {/* Quick Document Selection for this document */}
+                      {QUICK_DOCUMENTS[doc.category] && (
+                        <Box>
+                          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', mb: 1, display: 'block' }}>
+                            Quick Select:
+                          </Typography>
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                            {QUICK_DOCUMENTS[doc.category].map((docName) => (
+                              <Chip
+                                key={docName}
+                                label={docName}
+                                onClick={() => updateDocument(index, 'name', docName)}
+                                sx={{
+                                  backgroundColor: doc.name === docName ? '#2196f3' : 'rgba(255,255,255,0.1)',
+                                  color: 'white',
+                                  '&:hover': {
+                                    backgroundColor: doc.name === docName ? '#1976d2' : 'rgba(255,255,255,0.2)',
+                                  },
+                                  cursor: 'pointer',
+                                  fontSize: '0.75rem'
+                                }}
+                                size="small"
+                              />
+                            ))}
+                          </Box>
+                        </Box>
+                      )}
+
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={1}
+                        label="Description (Optional)"
+                        value={doc.description}
+                        onChange={(e) => updateDocument(index, 'description', e.target.value)}
+                        sx={dialogFieldSx}
+                        size="small"
+                      />
+                    </Stack>
+                  </Paper>
+                ))}
+              </Stack>
+            </Box>
+          )}
         </Stack>
 
         <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ mt: 3 }}>
@@ -251,10 +306,10 @@ function AddDocumentDialog({ open, onClose, onSave, initial }) {
           <Button
             onClick={handleSubmit}
             variant="contained"
-            disabled={!form.name.trim() || !uploadedFile || uploading}
-            sx={{ backgroundColor: '#4caf50', '&:hover': { backgroundColor: '#45a049' } }}
+            disabled={uploading || documents.length === 0}
+            sx={{ backgroundColor: '#2196f3', '&:hover': { backgroundColor: '#1976d2' } }}
           >
-            {initial ? 'Save Changes' : 'Upload Document'}
+            {uploading ? 'Uploading...' : `Upload ${documents.length} Document${documents.length !== 1 ? 's' : ''}`}
           </Button>
         </Stack>
       </Box>

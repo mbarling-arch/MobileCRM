@@ -22,11 +22,11 @@ import {
   Storage as StorageIcon,
   Save as SaveIcon,
 } from '@mui/icons-material';
-import { useAuth } from '../AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../ThemeContext';
 import { db } from '../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import Layout from './Layout';
+import UnifiedLayout from './UnifiedLayout';
 
 const drawerWidth = 240;
 
@@ -156,7 +156,7 @@ function Settings() {
   };
 
   return (
-    <Layout>
+    <UnifiedLayout mode="admin">
       <Box sx={{ p: 3 }}>
 
         <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
@@ -406,7 +406,7 @@ function Settings() {
           </Grid>
         </Container>
       </Box>
-    </Layout>
+    </UnifiedLayout>
   );
 }
 

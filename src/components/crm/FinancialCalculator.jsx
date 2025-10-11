@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Stack, Typography, Grid, TextField, Divider, Button, Paper } from '@mui/material';
+import { Box, Stack, Typography, Grid, TextField, Divider, Button, Paper, IconButton } from '@mui/material';
+import { Upload as UploadIcon } from '@mui/icons-material';
 import { db } from '../../firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 
-function FinancialCalculator({ companyId, prospectId, initial }) {
+function FinancialCalculator({ companyId, prospectId, initial, context }) {
   const [data, setData] = useState(defaultCalculator());
   const [saving, setSaving] = useState(false);
+
+  const { creditData, setCreditData, saveCreditData } = context || {};
 
   useEffect(() => {
     setData({ ...defaultCalculator(), ...(initial || {}) });
@@ -28,33 +31,44 @@ function FinancialCalculator({ companyId, prospectId, initial }) {
     try {
       const ref = doc(db, 'companies', companyId, 'prospects', prospectId);
       await updateDoc(ref, { calculator: data });
+      // Also save credit data if context is provided
+      if (saveCreditData) {
+        await saveCreditData();
+      }
     } finally {
       setSaving(false);
     }
   };
 
+  const getScoreColor = (score) => {
+    const numScore = parseInt(score);
+    if (!numScore || isNaN(numScore)) return 'text.disabled';
+    if (numScore >= 720) return 'success.main';
+    if (numScore >= 650) return 'warning.main';
+    return 'error.main';
+  };
+
   const cellInputSx = {
     '& .MuiInputBase-root': {
       height: 44,
-      borderRadius: 1,
-      border: '1px solid rgba(255,255,255,0.12)',
-      backgroundColor: 'rgba(0,0,0,0.15)',
+      borderRadius: 2,
+      backgroundColor: 'action.hover',
       '&:hover': {
-        borderColor: 'rgba(255,255,255,0.2)',
-        backgroundColor: 'rgba(0,0,0,0.2)'
+        backgroundColor: 'action.selected'
       },
       '&.Mui-focused': {
-        borderColor: '#90caf9',
-        backgroundColor: 'rgba(0,0,0,0.2)'
+        backgroundColor: 'action.selected',
+        boxShadow: '0 0 0 2px rgba(140, 87, 255, 0.2)'
       }
     },
     '& .MuiInputBase-input': {
-      fontSize: 14,
+      fontSize: 16,
+      fontWeight: 500,
       textAlign: 'center',
       padding: '12px 8px',
-      color: 'white',
+      color: 'text.primary',
       '&::placeholder': {
-        color: 'rgba(255,255,255,0.5)',
+        color: 'text.disabled',
         opacity: 1
       }
     }
@@ -64,44 +78,43 @@ function FinancialCalculator({ companyId, prospectId, initial }) {
     <Box sx={{ width: '100%', display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
       {/* Left Side: Combined Monthly Income */}
       <Box sx={{ flex: 1, width: { xs: '100%', md: '50%' } }}>
-        <Paper sx={{ p: 3, backgroundColor: '#2a2746', borderRadius: 2, border: '1px solid rgba(255,255,255,0.08)', width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-
+        <Paper sx={{ p: 3, width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
             {/* Header */}
-            <Typography sx={{ color: 'white', fontWeight: 700, fontSize: 18, mb: 3 }}>
+            <Typography sx={{ color: 'text.primary', fontWeight: 700, fontSize: 20, mb: 3, textAlign: 'center' }}>
               Combined Monthly Income
             </Typography>
 
             {/* Income Table */}
-            <Box sx={{ border: '1px solid rgba(255,255,255,0.12)', borderRadius: 1, overflow: 'hidden' }}>
+            <Box sx={{ overflow: 'hidden' }}>
               {/* Table Header */}
               <Box sx={{
                 display: 'flex',
-                backgroundColor: 'rgba(255,255,255,0.05)',
-                borderBottom: '1px solid rgba(255,255,255,0.12)',
-                py: 1.5,
-                px: 2
+                backgroundColor: 'action.hover',
+                py: 2,
+                px: 2,
+                mb: 1
               }}>
                 <Box sx={{ flex: 1, textAlign: 'left' }}>
-                  <Typography sx={{ color: 'rgba(255,255,255,0.7)', fontSize: 14, fontWeight: 600 }}>Income Source</Typography>
+                  <Typography sx={{ color: 'text.secondary', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Income Source</Typography>
                 </Box>
                 <Box sx={{ flex: 1, textAlign: 'center' }}>
-                  <Typography sx={{ color: 'rgba(255,255,255,0.9)', fontWeight: 700, fontSize: 14 }}>Applicant</Typography>
+                  <Typography sx={{ color: 'primary.main', fontWeight: 700, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Applicant</Typography>
                 </Box>
                 <Box sx={{ flex: 1, textAlign: 'center' }}>
-                  <Typography sx={{ color: 'rgba(255,255,255,0.9)', fontWeight: 700, fontSize: 14 }}>Co-Applicant</Typography>
+                  <Typography sx={{ color: 'primary.main', fontWeight: 700, fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Co-Applicant</Typography>
                 </Box>
               </Box>
 
               {/* Income Rows */}
-              <IncomeTableRow label="Hourly Rate" key="hourlyRate" data={data} setField={setField} inputSx={cellInputSx} />
-              <IncomeTableRow label="Overtime Hours" key="weeklyOvertimeHours" data={data} setField={setField} inputSx={cellInputSx} />
-              <IncomeTableRow label="Annual Salary" key="annualSalary" data={data} setField={setField} inputSx={cellInputSx} />
-              <IncomeTableRow label="Fixed Monthly" key="fixedMonthly" data={data} setField={setField} inputSx={cellInputSx} />
-              <IncomeTableRow label="SSI/Disability" key="ssi" data={data} setField={setField} inputSx={cellInputSx} />
-              <IncomeTableRow label="Child Support" key="childSupport" data={data} setField={setField} inputSx={cellInputSx} />
-              <IncomeTableRow label="Retirement" key="retirement" data={data} setField={setField} inputSx={cellInputSx} />
-              <IncomeTableRow label="Other Income" key="other" data={data} setField={setField} inputSx={cellInputSx} />
+              <IncomeTableRow label="Hourly Rate" dataKey="hourlyRate" data={data} setField={setField} inputSx={cellInputSx} />
+              <IncomeTableRow label="Overtime Hours" dataKey="weeklyOvertimeHours" data={data} setField={setField} inputSx={cellInputSx} />
+              <IncomeTableRow label="Annual Salary" dataKey="annualSalary" data={data} setField={setField} inputSx={cellInputSx} />
+              <IncomeTableRow label="Fixed Monthly" dataKey="fixedMonthly" data={data} setField={setField} inputSx={cellInputSx} />
+              <IncomeTableRow label="SSI/Disability" dataKey="ssi" data={data} setField={setField} inputSx={cellInputSx} />
+              <IncomeTableRow label="Child Support" dataKey="childSupport" data={data} setField={setField} inputSx={cellInputSx} />
+              <IncomeTableRow label="Retirement" dataKey="retirement" data={data} setField={setField} inputSx={cellInputSx} />
+              <IncomeTableRow label="Other Income" dataKey="other" data={data} setField={setField} inputSx={cellInputSx} />
             </Box>
           </Box>
         </Paper>
@@ -109,13 +122,87 @@ function FinancialCalculator({ companyId, prospectId, initial }) {
 
       {/* Right Side: Additional Information + Combined Total */}
       <Box sx={{ flex: 1, width: { xs: '100%', md: '50%' } }}>
-        <Paper sx={{ p: 3, backgroundColor: '#2a2746', borderRadius: 2, border: '1px solid rgba(255,255,255,0.08)', width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-          <Typography sx={{ color: 'white', fontWeight: 700, fontSize: 18, mb: 2 }}>Additional Information</Typography>
-          <Divider sx={{ borderColor: 'rgba(255,255,255,0.12)', mb: 3 }} />
+        <Paper sx={{ p: 3, width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <Typography sx={{ color: 'text.primary', fontWeight: 700, fontSize: 20, mb: 3, textAlign: 'center' }}>Financial Analysis</Typography>
 
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            {/* Credit Scores Section */}
+            {creditData && (
+              <Box sx={{ mb: 3, pb: 3, borderBottom: '1px solid', borderBottomColor: 'customColors.calendarBorder' }}>
+                <Typography sx={{ color: 'text.secondary', fontSize: 14, fontWeight: 600, mb: 2, textTransform: 'uppercase' }}>Credit Scores</Typography>
+                <Box sx={{ display: 'flex', gap: 3, flexDirection: { xs: 'column', sm: 'row' } }}>
+                  {/* Primary Applicant */}
+                  <Box sx={{ flex: 1 }}>
+                    <Typography sx={{ color: 'primary.main', fontSize: 12, fontWeight: 600, mb: 1.5 }}>PRIMARY APPLICANT</Typography>
+                    <Stack spacing={1.5}>
+                      <CreditScoreInput
+                        label="TransUnion"
+                        value={creditData.applicantTransUnion}
+                        onChange={(val) => setCreditData({ ...creditData, applicantTransUnion: val })}
+                        getScoreColor={getScoreColor}
+                      />
+                      <CreditScoreInput
+                        label="Equifax"
+                        value={creditData.applicantEquifax}
+                        onChange={(val) => setCreditData({ ...creditData, applicantEquifax: val })}
+                        getScoreColor={getScoreColor}
+                      />
+                      <CreditScoreInput
+                        label="Experian"
+                        value={creditData.applicantExperian}
+                        onChange={(val) => setCreditData({ ...creditData, applicantExperian: val })}
+                        getScoreColor={getScoreColor}
+                      />
+                    </Stack>
+                  </Box>
+
+                  {/* Co-Applicant */}
+                  <Box sx={{ flex: 1 }}>
+                    <Typography sx={{ color: 'primary.main', fontSize: 12, fontWeight: 600, mb: 1.5 }}>CO-APPLICANT</Typography>
+                    <Stack spacing={1.5}>
+                      <CreditScoreInput
+                        label="TransUnion"
+                        value={creditData.coApplicantTransUnion}
+                        onChange={(val) => setCreditData({ ...creditData, coApplicantTransUnion: val })}
+                        getScoreColor={getScoreColor}
+                      />
+                      <CreditScoreInput
+                        label="Equifax"
+                        value={creditData.coApplicantEquifax}
+                        onChange={(val) => setCreditData({ ...creditData, coApplicantEquifax: val })}
+                        getScoreColor={getScoreColor}
+                      />
+                      <CreditScoreInput
+                        label="Experian"
+                        value={creditData.coApplicantExperian}
+                        onChange={(val) => setCreditData({ ...creditData, coApplicantExperian: val })}
+                        getScoreColor={getScoreColor}
+                      />
+                    </Stack>
+                  </Box>
+                </Box>
+
+                {/* Credit Report Upload */}
+                <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+                  <Button
+                    variant="outlined"
+                    component="label"
+                    startIcon={<UploadIcon />}
+                    size="small"
+                  >
+                    Upload Credit Report
+                    <input
+                      type="file"
+                      hidden
+                      accept=".pdf,.doc,.docx"
+                    />
+                  </Button>
+                </Box>
+              </Box>
+            )}
+
             {/* Additional Information Fields */}
-            <Stack spacing={3} sx={{ flex: 1 }}>
+            <Stack spacing={2.5} sx={{ flex: 1 }}>
               <TopLabeled label="Lowest Credit Applicant Midscore">
                 <TextField type="text" inputProps={{ inputMode: 'numeric' }} value={data.additional.midscore || ''} onChange={setField('additional.midscore')} fullWidth size="medium" sx={cellInputSx} />
               </TopLabeled>
@@ -134,16 +221,16 @@ function FinancialCalculator({ companyId, prospectId, initial }) {
             </Stack>
 
             {/* Combined Total - Moved here from left side */}
-            <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid rgba(255,255,255,0.12)' }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 1 }}>
-                <Typography sx={{ color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>Combined Monthly Income</Typography>
+            <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid', borderTopColor: 'customColors.calendarBorder' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2, backgroundColor: 'customColors.tableRowBackground', borderRadius: 1 }}>
+                <Typography sx={{ color: 'text.primary', fontWeight: 600 }}>Combined Monthly Income</Typography>
                 <CombinedBox value={currency(grossMonthlyIncome)} />
               </Box>
             </Box>
 
             {/* Save Button */}
             <Stack direction="row" justifyContent="flex-end" sx={{ mt: 3 }}>
-              <Button variant="contained" onClick={handleSave} disabled={saving}>Save</Button>
+              <Button variant="contained" onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save All'}</Button>
             </Stack>
           </Box>
         </Paper>
@@ -152,32 +239,32 @@ function FinancialCalculator({ companyId, prospectId, initial }) {
   );
 }
 
-function IncomeTableRow({ label, key, data, setField, inputSx }) {
+function IncomeTableRow({ label, dataKey, data, setField, inputSx }) {
   return (
     <Box sx={{
       display: 'flex',
       alignItems: 'center',
       py: 1.5,
       px: 2,
-      borderBottom: '1px solid rgba(255,255,255,0.06)',
-      '&:last-child': { borderBottom: 'none' }
+      '&:hover': { backgroundColor: 'action.hover' },
+      transition: 'background-color 0.2s ease'
     }}>
       <Box sx={{ flex: 1, textAlign: 'left' }}>
-        <Typography sx={{ color: 'rgba(255,255,255,0.85)', fontSize: 14 }}>
+        <Typography sx={{ color: 'text.secondary', fontSize: 13, fontWeight: 500 }}>
           {label}
         </Typography>
       </Box>
       <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
         <NumericField
-          value={data.applicant[key] || ''}
-          onChange={setField(`applicant.${key}`)}
+          value={data.applicant[dataKey] || ''}
+          onChange={setField(`applicant.${dataKey}`)}
           sx={inputSx}
         />
       </Box>
       <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
         <NumericField
-          value={data.coapplicant[key] || ''}
-          onChange={setField(`coapplicant.${key}`)}
+          value={data.coapplicant[dataKey] || ''}
+          onChange={setField(`coapplicant.${dataKey}`)}
           sx={inputSx}
         />
       </Box>
@@ -201,9 +288,9 @@ function Section({ title, children }) {
 
 function TopLabeled({ label, children }) {
   return (
-    <Stack spacing={0.5}>
-      <Typography sx={{ color: 'rgba(255,255,255,0.85)', fontSize: 14, fontWeight: 600 }}>{label}</Typography>
-      <Box sx={{ '& .MuiInputBase-input': { fontSize: 16 }, '& .MuiSelect-select': { fontSize: 16 } }}>
+    <Stack spacing={0.75}>
+      <Typography sx={{ color: 'text.secondary', fontSize: 12, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</Typography>
+      <Box sx={{ '& .MuiInputBase-input': { fontSize: 17, fontWeight: 500 }, '& .MuiSelect-select': { fontSize: 17, fontWeight: 500 } }}>
         {children}
       </Box>
     </Stack>
@@ -314,6 +401,33 @@ function CombinedBox({ value }) {
 }
 
 function toNumber(v) { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; }
+
+function CreditScoreInput({ label, value, onChange, getScoreColor }) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <Typography sx={{ color: 'text.secondary', fontSize: 11, fontWeight: 500, textTransform: 'uppercase' }}>
+        {label}
+      </Typography>
+      <TextField
+        size="small"
+        type="number"
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Score"
+        sx={{
+          width: 80,
+          '& .MuiInputBase-input': {
+            fontSize: 14,
+            fontWeight: 600,
+            textAlign: 'center',
+            color: getScoreColor(value),
+            padding: '6px 8px'
+          }
+        }}
+      />
+    </Box>
+  );
+}
 
 export default FinancialCalculator;
 

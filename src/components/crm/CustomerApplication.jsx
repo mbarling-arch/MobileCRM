@@ -6,42 +6,36 @@ import {
   Stack,
   Typography,
   Button,
-  TextField,
   Step,
   StepLabel,
   Stepper,
   Container,
-  Grid,
-  MenuItem,
-  FormControl,
-  FormLabel,
-  RadioGroup,
-  FormControlLabel,
-  Radio,
-  Checkbox,
-  Divider,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  IconButton,
-  List,
-  ListItem,
-  ListItemText
+  Snackbar,
+  Alert
 } from '@mui/material';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { Add as AddIcon, Delete as DeleteIcon, ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 import { db } from '../../firebase';
+import { CustomerApplicationProvider, useCustomerApplication } from './customer-application/CustomerApplicationContext';
+import { LoanPropertySection } from './customer-application/LoanPropertySection';
+import { ApplicantInfoSection } from './customer-application/ApplicantInfoSection';
 
-function CustomerApplication() {
+function CustomerApplicationContent({ onSubmit }) {
   const { prospectId } = useParams();
   const [searchParams] = useSearchParams();
   const companyId = searchParams.get('companyId');
-  
-  const [currentStep, setCurrentStep] = useState(0);
-  const [applicationData, setApplicationData] = useState({});
-  const [saving, setSaving] = useState(false);
   const [prospectData, setProspectData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  const {
+    applicationData,
+    saving,
+    currentStep,
+    setSaving,
+    setCurrentStep,
+    handleFieldChange,
+    setApplicationData
+  } = useCustomerApplication();
 
   // Application sections with all form fields
   const applicationSections = [
@@ -79,16 +73,27 @@ function CustomerApplication() {
 
   useEffect(() => {
     const loadProspectData = async () => {
-      if (!companyId || !prospectId) return;
-      
+      if (!companyId || !prospectId) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        const prospectDoc = await getDoc(doc(db, 'companies', companyId, 'prospects', prospectId));
-        if (prospectDoc.exists()) {
-          setProspectData(prospectDoc.data());
+        // First try to load from deals collection (for converted prospects)
+        let dataDoc = await getDoc(doc(db, 'companies', companyId, 'deals', prospectId));
+
+        // If not found in deals, try prospects collection
+        if (!dataDoc.exists()) {
+          dataDoc = await getDoc(doc(db, 'companies', companyId, 'prospects', prospectId));
+        }
+
+        if (dataDoc.exists()) {
+          const data = dataDoc.data();
+          setProspectData(data);
           // Pre-populate form with existing data if available
           setApplicationData(prev => ({
             ...prev,
-            ...prospectDoc.data()
+            ...data
           }));
         }
       } catch (error) {
@@ -101,10 +106,6 @@ function CustomerApplication() {
     loadProspectData();
   }, [companyId, prospectId]);
 
-  const handleFieldChange = (field) => (e) => {
-    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    setApplicationData(prev => ({ ...prev, [field]: value }));
-  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -118,6 +119,10 @@ function CustomerApplication() {
       
       if (currentStep === applicationSections.length - 1) {
         alert('Application submitted successfully!');
+        // Trigger automatic conversion to deal
+        if (onSubmit) {
+          onSubmit();
+        }
       }
     } catch (error) {
       console.error('Error saving application:', error);
@@ -154,7 +159,7 @@ function CustomerApplication() {
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#1a1625', py: 4 }}>
+    <Box sx={{ minHeight: '100vh', backgroundColor: 'customColors.layoutBackground', py: 4 }}>
       <Container maxWidth="lg">
         {/* Header */}
         <Paper sx={{ 
@@ -173,11 +178,11 @@ function CustomerApplication() {
         </Paper>
 
         {/* Progress Stepper */}
-        <Paper sx={{ 
-          p: 3, 
-          mb: 3, 
-          backgroundColor: '#2a2746', 
-          border: '1px solid rgba(255,255,255,0.08)' 
+        <Paper sx={{
+          p: 3,
+          mb: 3,
+          backgroundColor: 'customColors.drawerBackground',
+          border: '1px solid rgba(255,255,255,0.08)'
         }}>
           <Stepper activeStep={currentStep} alternativeLabel>
             {applicationSections.map((section, index) => (
@@ -302,388 +307,7 @@ function CustomerApplication() {
 }
 
 // Section 1: Loan & Property Information
-function LoanPropertySection({ data, onChange }) {
-  return (
-    <Stack spacing={4}>
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            select
-            label="Loan Type"
-            value={data.loanType || ''}
-            onChange={onChange('loanType')}
-            sx={fieldSx}
-          >
-            <MenuItem value="Home Only">Home Only</MenuItem>
-            <MenuItem value="Land and Home">Land and Home</MenuItem>
-            <MenuItem value="Land Only">Land Only</MenuItem>
-          </TextField>
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            label="Purchase Price/Payoff"
-            type="number"
-            value={data.purchasePrice || ''}
-            onChange={onChange('purchasePrice')}
-            InputProps={{ startAdornment: '$' }}
-            sx={fieldSx}
-          />
-        </Grid>
-      </Grid>
 
-      <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
-      <Typography sx={{ color: 'white', fontWeight: 600, fontSize: 18 }}>Property Address</Typography>
-      
-      <Grid container spacing={3}>
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            label="Street Address"
-            value={data.streetAddress || ''}
-            onChange={onChange('streetAddress')}
-            sx={fieldSx}
-          />
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <TextField
-            fullWidth
-            label="City"
-            value={data.city || ''}
-            onChange={onChange('city')}
-            sx={fieldSx}
-          />
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <TextField
-            fullWidth
-            label="State"
-            value={data.state || ''}
-            onChange={onChange('state')}
-            sx={fieldSx}
-          />
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <TextField
-            fullWidth
-            label="Zip Code"
-            value={data.zip || ''}
-            onChange={onChange('zip')}
-            sx={fieldSx}
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            label="County"
-            value={data.county || ''}
-            onChange={onChange('county')}
-            sx={fieldSx}
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            label="Estimated Land Value"
-            type="number"
-            value={data.estimatedLandValue || ''}
-            onChange={onChange('estimatedLandValue')}
-            InputProps={{ startAdornment: '$' }}
-            sx={fieldSx}
-          />
-        </Grid>
-      </Grid>
-
-      <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
-      <Typography sx={{ color: 'white', fontWeight: 600, fontSize: 18 }}>Property Details</Typography>
-
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            label="Date Acquired"
-            type="date"
-            value={data.dateAcquired || ''}
-            onChange={onChange('dateAcquired')}
-            InputLabelProps={{ shrink: true }}
-            sx={fieldSx}
-          />
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <TextField
-            fullWidth
-            select
-            label="Property Will Be"
-            value={data.propertyWillBe || ''}
-            onChange={onChange('propertyWillBe')}
-            sx={fieldSx}
-          >
-            <MenuItem value="Primary Residence">Primary Residence</MenuItem>
-            <MenuItem value="Secondary Residence">Secondary Residence</MenuItem>
-            <MenuItem value="Investment/Rental">Investment/Rental</MenuItem>
-            <MenuItem value="Buy-For">Buy-For</MenuItem>
-          </TextField>
-        </Grid>
-      </Grid>
-
-      <Paper sx={{ p: 3, backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)' }}>
-        <FormControl component="fieldset">
-          <FormLabel sx={{ color: 'white', mb: 2 }}>Site Rent Increase in 3 Years?</FormLabel>
-          <RadioGroup
-            value={data.siteRentIncrease || ''}
-            onChange={onChange('siteRentIncrease')}
-            row
-          >
-            <FormControlLabel value="Yes" control={<Radio sx={{ color: 'white' }} />} label="Yes" sx={{ color: 'white' }} />
-            <FormControlLabel value="No" control={<Radio sx={{ color: 'white' }} />} label="No" sx={{ color: 'white' }} />
-          </RadioGroup>
-        </FormControl>
-        {data.siteRentIncrease === 'Yes' && (
-          <TextField
-            fullWidth
-            label="Explanation"
-            multiline
-            rows={3}
-            value={data.siteRentExplanation || ''}
-            onChange={onChange('siteRentExplanation')}
-            sx={{ ...fieldSx, mt: 2 }}
-          />
-        )}
-      </Paper>
-
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={4}>
-          <TextField
-            fullWidth
-            label="HOA Fee"
-            type="number"
-            value={data.hoaFee || ''}
-            onChange={onChange('hoaFee')}
-            InputProps={{ startAdornment: '$' }}
-            sx={fieldSx}
-          />
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <TextField
-            fullWidth
-            select
-            label="HOA Frequency"
-            value={data.hoaFrequency || ''}
-            onChange={onChange('hoaFrequency')}
-            sx={fieldSx}
-          >
-            <MenuItem value="Monthly">Monthly</MenuItem>
-            <MenuItem value="Quarterly">Quarterly</MenuItem>
-            <MenuItem value="Annually">Annually</MenuItem>
-          </TextField>
-        </Grid>
-      </Grid>
-
-      <Stack spacing={2}>
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={data.residentOwnedCommunity || false}
-              onChange={onChange('residentOwnedCommunity')}
-              sx={{ color: 'white' }}
-            />
-          }
-          label="Will Home Be in a Resident-Owned Community?"
-          sx={{ color: 'white' }}
-        />
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={data.coOpSecurityInterest || false}
-              onChange={onChange('coOpSecurityInterest')}
-              sx={{ color: 'white' }}
-            />
-          }
-          label="Co-Op Security Interest Pledged?"
-          sx={{ color: 'white' }}
-        />
-      </Stack>
-    </Stack>
-  );
-}
-
-// Section 2: Applicant & Co-Applicant Info
-function ApplicantInfoSection({ data, onChange }) {
-  return (
-    <Stack spacing={4}>
-      {/* Applicant Information */}
-      <Box>
-        <Typography sx={{ color: 'white', fontWeight: 600, fontSize: 20, mb: 3 }}>
-          Primary Applicant Information
-        </Typography>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Full Name"
-              value={data.applicantName || ''}
-              onChange={onChange('applicantName')}
-              sx={fieldSx}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Birth Date"
-              type="date"
-              value={data.applicantBirthDate || ''}
-              onChange={onChange('applicantBirthDate')}
-              InputLabelProps={{ shrink: true }}
-              sx={fieldSx}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Social Security Number"
-              type="password"
-              value={data.applicantSSN || ''}
-              onChange={onChange('applicantSSN')}
-              placeholder="XXX-XX-XXXX"
-              sx={fieldSx}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              select
-              label="Marital Status"
-              value={data.applicantMaritalStatus || ''}
-              onChange={onChange('applicantMaritalStatus')}
-              sx={fieldSx}
-            >
-              <MenuItem value="Married">Married</MenuItem>
-              <MenuItem value="Unmarried">Unmarried</MenuItem>
-              <MenuItem value="Separated">Separated</MenuItem>
-            </TextField>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Email Address"
-              type="email"
-              value={data.applicantEmail || ''}
-              onChange={onChange('applicantEmail')}
-              sx={fieldSx}
-            />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField
-              fullWidth
-              label="Cell Phone"
-              value={data.applicantCellPhone || ''}
-              onChange={onChange('applicantCellPhone')}
-              placeholder="(XXX) XXX-XXXX"
-              sx={fieldSx}
-            />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField
-              fullWidth
-              label="Other Phone"
-              value={data.applicantOtherPhone || ''}
-              onChange={onChange('applicantOtherPhone')}
-              placeholder="(XXX) XXX-XXXX"
-              sx={fieldSx}
-            />
-          </Grid>
-        </Grid>
-      </Box>
-
-      <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
-
-      {/* Co-Applicant Information */}
-      <Box>
-        <Typography sx={{ color: 'white', fontWeight: 600, fontSize: 20, mb: 3 }}>
-          Co-Applicant Information
-        </Typography>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Full Name"
-              value={data.coApplicantName || ''}
-              onChange={onChange('coApplicantName')}
-              sx={fieldSx}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Birth Date"
-              type="date"
-              value={data.coApplicantBirthDate || ''}
-              onChange={onChange('coApplicantBirthDate')}
-              InputLabelProps={{ shrink: true }}
-              sx={fieldSx}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Social Security Number"
-              type="password"
-              value={data.coApplicantSSN || ''}
-              onChange={onChange('coApplicantSSN')}
-              placeholder="XXX-XX-XXXX"
-              sx={fieldSx}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              select
-              label="Marital Status"
-              value={data.coApplicantMaritalStatus || ''}
-              onChange={onChange('coApplicantMaritalStatus')}
-              sx={fieldSx}
-            >
-              <MenuItem value="Married">Married</MenuItem>
-              <MenuItem value="Unmarried">Unmarried</MenuItem>
-              <MenuItem value="Separated">Separated</MenuItem>
-            </TextField>
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Email Address"
-              type="email"
-              value={data.coApplicantEmail || ''}
-              onChange={onChange('coApplicantEmail')}
-              sx={fieldSx}
-            />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField
-              fullWidth
-              label="Cell Phone"
-              value={data.coApplicantCellPhone || ''}
-              onChange={onChange('coApplicantCellPhone')}
-              placeholder="(XXX) XXX-XXXX"
-              sx={fieldSx}
-            />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField
-              fullWidth
-              label="Other Phone"
-              value={data.coApplicantOtherPhone || ''}
-              onChange={onChange('coApplicantOtherPhone')}
-              placeholder="(XXX) XXX-XXXX"
-              sx={fieldSx}
-            />
-          </Grid>
-        </Grid>
-      </Box>
-    </Stack>
-  );
-}
 
 // Section 3: Residence & Employment
 function ResidenceEmploymentSection({ data, onChange }) {
@@ -1971,6 +1595,21 @@ function DemographicsSignaturesSection({ data, onChange }) {
         </Paper>
       </Box>
     </Stack>
+  );
+}
+
+function CustomerApplication({ onSubmit, prospectId: propProspectId }) {
+  const params = useParams();
+  const [searchParams] = useSearchParams();
+
+  // Use prop prospectId if provided, otherwise get from params (handling both prospectId and dealId)
+  const prospectId = propProspectId || params.prospectId || params.dealId;
+  const companyId = searchParams.get('companyId');
+
+  return (
+    <CustomerApplicationProvider prospectId={prospectId} companyId={companyId}>
+      <CustomerApplicationContent onSubmit={onSubmit} />
+    </CustomerApplicationProvider>
   );
 }
 

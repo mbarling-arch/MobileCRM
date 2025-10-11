@@ -13,11 +13,11 @@ import {
   Group as GroupIcon,
   ArrowForward as ArrowForwardIcon
 } from '@mui/icons-material';
-import CRMLayout from '../CRMLayout';
+import UnifiedLayout from '../UnifiedLayout';
 import TaskList from './TaskList';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { useUser } from '../../UserContext';
+import { useUser } from '../../hooks/useUser';
 
 function Tasks({ type }) {
   const navigate = useNavigate();
@@ -112,7 +112,7 @@ function Tasks({ type }) {
   }
 
   return (
-    <CRMLayout>
+    <UnifiedLayout mode="crm">
       <Box sx={{ p: 3 }}>
         <Stack spacing={3}>
           <Box>
@@ -154,7 +154,7 @@ function Tasks({ type }) {
           </Stack>
         </Stack>
       </Box>
-    </CRMLayout>
+    </UnifiedLayout>
   );
 }
 

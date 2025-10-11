@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Drawer, Stack, Typography, TextField, Button } from '@mui/material';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { useUser } from '../../UserContext';
+import { useUser } from '../../hooks/useUser';
 
 function VisitLogDrawer({ open, onClose, companyId, docType = 'prospects', docId }) {
   const { userProfile } = useUser();

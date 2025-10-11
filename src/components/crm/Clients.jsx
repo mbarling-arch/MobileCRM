@@ -10,7 +10,7 @@ import {
   Divider,
   TextField
 } from '@mui/material';
-import CRMLayout from '../CRMLayout';
+import UnifiedLayout from '../UnifiedLayout';
 import ActivityLog from './ActivityLog';
 
 function Clients() {
@@ -20,7 +20,7 @@ function Clients() {
   const [activeSecondaryTab, setActiveSecondaryTab] = useState('home-info');
 
   return (
-    <CRMLayout>
+    <UnifiedLayout mode="crm">
       <Box sx={{ p: 3 }}>
         {/* Buyer Information */}
         <Paper elevation={6} sx={{ backgroundColor: '#2a2746', px: { xs: 1.5, sm: 3 }, py: 2, mb: 2.5, border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -144,7 +144,7 @@ function Clients() {
           <ActivityLog companyId={''} docType="clients" docId={''} />
         </Paper>
       </Box>
-    </CRMLayout>
+    </UnifiedLayout>
   );
 }
 

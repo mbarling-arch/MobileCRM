@@ -1,0 +1,6 @@
+name,displayName,description,pages
+sales_manager,Sales Manager,"Manages sales team and has access to all sales features","dashboard,leads,prospects,deals,calendar,tasks,inventory"
+finance_coordinator,Finance Coordinator,"Handles financing and deal paperwork","dashboard,deals,prospects,forms"
+lot_manager,Lot Manager,"Manages inventory and lot operations","dashboard,inventory,projects,calendar"
+marketing_specialist,Marketing Specialist,"Manages marketing campaigns and lead generation","dashboard,leads,calendar,forms"
+

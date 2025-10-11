@@ -1,0 +1,5 @@
+locationId,name,address,city,state,zipCode,phone,manager,status
+LOC001,Main Office,"123 Highway 45 N","Springfield","IL",62701,555-123-4567,John Smith,active
+LOC002,North Branch,"456 Commerce Drive","Chicago","IL",60601,555-234-5678,Jane Doe,active
+LOC003,South Location,"789 Industrial Blvd","Peoria","IL",61602,555-345-6789,Mike Johnson,active
+

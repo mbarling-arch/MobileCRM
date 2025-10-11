@@ -14,6 +14,26 @@ function ActivityLog({ companyId, docType = 'leads', docId, createdAt, createdBy
   const [visits, setVisits] = useState([]);
   const [emails, setEmails] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [users, setUsers] = useState([]);
+
+  // Load users for name mapping
+  useEffect(() => {
+    if (!companyId) return;
+
+    const usersRef = collection(db, 'users');
+    const unsub = onSnapshot(usersRef, (snapshot) => {
+      const usersData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        email: doc.data().email,
+        displayName: doc.data().displayName || doc.data().name || doc.data().email,
+        firstName: doc.data().firstName || '',
+        lastName: doc.data().lastName || ''
+      }));
+      setUsers(usersData);
+    });
+
+    return () => unsub();
+  }, [companyId]);
 
   useEffect(() => {
     if (!companyId || !docId) return;
@@ -36,6 +56,19 @@ function ActivityLog({ companyId, docType = 'leads', docId, createdAt, createdBy
     safeAttach([...base, 'tasks'], setTasks);
     return () => unsubs.forEach(u => u());
   }, [companyId, docType, docId]);
+
+  // Helper function to get user display name from email
+  const getUserDisplayName = (email) => {
+    if (!email) return '';
+    const user = users.find(u => u.email === email);
+    if (user) {
+      if (user.firstName && user.lastName) {
+        return `${user.firstName} ${user.lastName}`;
+      }
+      return user.displayName || email;
+    }
+    return email;
+  };
 
   const items = useMemo(() => {
     const mapItem = (type, d) => {
@@ -87,7 +120,7 @@ function ActivityLog({ companyId, docType = 'leads', docId, createdAt, createdBy
                   {item.displayDate?.toDate ? item.displayDate.toDate().toLocaleString() : item.createdAt?.toDate ? item.createdAt.toDate().toLocaleString() : ''}
                 </Typography>
               </Stack>
-              <Chip size="small" label={item.createdBy || ''} sx={{ bgcolor: 'rgba(0,255,127,0.15)', color: '#a6f3c0' }} />
+              <Chip size="small" label={getUserDisplayName(item.createdBy)} sx={{ bgcolor: 'rgba(0,255,127,0.15)', color: '#a6f3c0' }} />
             </Stack>
           </Box>
         ))}

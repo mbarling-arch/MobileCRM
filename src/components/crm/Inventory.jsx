@@ -4,12 +4,11 @@ import {
   Button,
   Card,
   CardContent,
-  Chip,
   Divider,
   Tabs,
   Tab,
   IconButton,
-
+  Chip,
   MenuItem,
   Select,
   Stack,
@@ -20,7 +19,8 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TableRow
+  TableRow,
+  Paper
 } from '@mui/material';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Snackbar, Alert } from '@mui/material';
 import FilterListIcon from '@mui/icons-material/FilterList';
@@ -31,41 +31,62 @@ import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
 import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
 import EventOutlinedIcon from '@mui/icons-material/EventOutlined';
 import AddIcon from '@mui/icons-material/Add';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
 import SaveListDialog from './SaveListDialog';
-import AddInventoryDrawer from './AddInventoryDrawer';
-import CRMLayout from '../CRMLayout';
+import InventoryDialog from './InventoryDialog';
+import UnifiedLayout from '../UnifiedLayout';
 import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { useUser } from '../../UserContext';
+import { useUser } from '../../hooks/useUser';
 
 function Inventory() {
-  const { userProfile } = useUser();
+  const { userProfile, accessibleLocations } = useUser();
 
   const [activeTab, setActiveTab] = useState('stock');
   const [inventory, setInventory] = useState([]);
   const [filterOpen, setFilterOpen] = useState(false);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
-  const [addDrawerOpen, setAddDrawerOpen] = useState(false);
-  const [editItem, setEditItem] = useState(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState('create'); // 'create', 'view', 'edit'
+  const [selectedItem, setSelectedItem] = useState(null);
   const [filter, setFilter] = useState({ query: '', dateRange: 'all', customStart: '', customEnd: '' });
   const [sort, setSort] = useState({ column: 'createdAt', direction: 'desc' });
   const [savedViews, setSavedViews] = useState([]);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [selectedLocationId, setSelectedLocationId] = useState('');
+  const [locations, setLocations] = useState([]);
 
   const companyId = userProfile?.companyId || 'demo-company';
   const locationId = userProfile?.locationId || 'demo-location';
   const currentUserEmail = userProfile?.email || userProfile?.firebaseUser?.email;
 
-  // Firebase inventory collection
+  // Load accessible locations
   useEffect(() => {
+    if (accessibleLocations && accessibleLocations.length > 0) {
+      setLocations(accessibleLocations);
+      // Set default location to user's location or first accessible location
+      if (userProfile?.locationId) {
+        setSelectedLocationId(userProfile.locationId);
+      } else if (accessibleLocations[0]?.id) {
+        setSelectedLocationId(accessibleLocations[0].id);
+      }
+    }
+  }, [accessibleLocations, userProfile?.locationId]);
+
+  // Firebase inventory collection - filtered by selected location
+  useEffect(() => {
+    if (!companyId || !selectedLocationId) return;
+    
     const col = collection(db, 'companies', companyId, 'inventory');
     const q = query(col, orderBy('createdAt', 'desc'));
     const unsub = onSnapshot(q, (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setInventory(data);
+      // Filter by selected location
+      const filteredData = data.filter(item => item.locationId === selectedLocationId);
+      setInventory(filteredData);
     });
     return () => unsub();
-  }, [companyId]);
+  }, [companyId, selectedLocationId]);
 
   const stockHomes = useMemo(() => inventory.filter(item => item.status === 'stock'), [inventory]);
   const rsoItems = useMemo(() => inventory.filter(item => item.status === 'rso'), [inventory]);
@@ -74,38 +95,70 @@ function Inventory() {
 
   const handleCreateInventory = async (payload) => {
     try {
+      console.log('=== INVENTORY SAVE ATTEMPT ===');
+      console.log('Payload received:', JSON.stringify(payload, null, 2));
+      console.log('companyId:', companyId);
+      console.log('selectedLocationId:', selectedLocationId);
+      console.log('userProfile:', userProfile ? 'exists' : 'null/undefined');
+
+      if (!companyId) {
+        throw new Error('No companyId available');
+      }
+
+      if (!selectedLocationId) {
+        throw new Error('No locationId available');
+      }
+
       const data = {
         ...payload,
         companyId,
-        locationId,
+        locationId: selectedLocationId,
+        availabilityStatus: payload.availabilityStatus || 'available',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         createdBy: currentUserEmail || 'system'
       };
+      console.log('Final data to save:', JSON.stringify(data, null, 2));
+      console.log('Saving to collection: companies/' + companyId + '/inventory');
+
       await addDoc(collection(db, 'companies', companyId, 'inventory'), data);
-      setAddDrawerOpen(false);
+      console.log('✅ Successfully saved to Firestore');
+      setDialogOpen(false);
+      setSelectedItem(null);
       setSnackbar({ open: true, message: 'Inventory item added successfully', severity: 'success' });
     } catch (error) {
-      console.error('Error creating inventory:', error);
+      console.error('❌ Error creating inventory:', error);
       setSnackbar({ open: true, message: 'Error adding inventory item', severity: 'error' });
     }
   };
 
   const handleEditInventory = async (payload) => {
-    if (!editItem) return;
+    if (!selectedItem) return;
     try {
-      const ref = doc(db, 'companies', companyId, 'inventory', editItem.id);
+      const ref = doc(db, 'companies', companyId, 'inventory', selectedItem.id);
       await updateDoc(ref, {
         ...payload,
         updatedAt: serverTimestamp()
       });
-      setAddDrawerOpen(false);
-      setEditItem(null);
+      setDialogOpen(false);
+      setSelectedItem(null);
       setSnackbar({ open: true, message: 'Inventory item updated successfully', severity: 'success' });
     } catch (error) {
       console.error('Error updating inventory:', error);
       setSnackbar({ open: true, message: 'Error updating inventory item', severity: 'error' });
     }
+  };
+
+  const handleOpenDialog = (item = null, mode = 'create') => {
+    setSelectedItem(item);
+    setDialogMode(mode);
+    setDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setDialogOpen(false);
+    setSelectedItem(null);
+    setDialogMode('create');
   };
 
   const rowsForTab = useMemo(() => {
@@ -188,14 +241,14 @@ function Inventory() {
   };
 
   return (
-    <CRMLayout>
+    <UnifiedLayout mode="crm">
       <Box sx={{ p: 3, width: '100%' }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
           <Typography variant="h4" sx={{ color: 'white', fontWeight: 700 }}>
             Inventory Management
           </Typography>
           <Stack direction="row" spacing={2}>
-            <Button variant="contained" startIcon={<AddIcon />} onClick={() => setAddDrawerOpen(true)} sx={{ backgroundColor: '#4caf50', '&:hover': { backgroundColor: '#45a049' } }}>
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog(null, 'create')} sx={{ backgroundColor: '#4caf50', '&:hover': { backgroundColor: '#45a049' } }}>
               Add Inventory
             </Button>
             <Button variant="outlined" startIcon={<FilterListIcon />} onClick={() => setFilterOpen(true)}>
@@ -207,7 +260,38 @@ function Inventory() {
           </Stack>
         </Stack>
 
-        <Card elevation={6} sx={{ backgroundColor: '#2a2746', border: '1px solid rgba(255,255,255,0.08)' }}>
+        {/* Location Tabs */}
+        {locations.length > 0 && (
+          <Paper sx={{ mb: 3, backgroundColor: 'customColors.cardBackground', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <Tabs
+              value={selectedLocationId}
+              onChange={(e, newValue) => setSelectedLocationId(newValue)}
+              sx={{
+                '& .MuiTab-root': { color: 'text.secondary', fontWeight: 600 },
+                '& .MuiTab-root.Mui-selected': { color: 'text.primary' },
+                '& .MuiTabs-indicator': { backgroundColor: 'primary.main', height: 3 }
+              }}
+            >
+              {locations.map((location) => (
+                <Tab 
+                  key={location.id} 
+                  label={
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <LocationOnIcon sx={{ fontSize: 18 }} />
+                      <span>{location.name}</span>
+                      {location.id === userProfile?.locationId && (
+                        <Chip label="Your Location" size="small" color="primary" sx={{ height: 20 }} />
+                      )}
+                    </Stack>
+                  } 
+                  value={location.id} 
+                />
+              ))}
+            </Tabs>
+          </Paper>
+        )}
+
+        <Card elevation={6} sx={{ backgroundColor: 'customColors.cardBackground', border: '1px solid rgba(255,255,255,0.08)' }}>
           <CardContent sx={{ p: 0 }}>
             <Tabs
               value={activeTab}
@@ -235,6 +319,7 @@ function Inventory() {
                 formatCurrency={formatCurrency}
                 sort={sort}
                 onSortChange={setSort}
+                onRowClick={(item) => handleOpenDialog(item, 'view')}
                 onStatusChange={async (itemId, newStatus) => {
                   try {
                     const ref = doc(db, 'companies', companyId, 'inventory', itemId);
@@ -281,13 +366,13 @@ function Inventory() {
           }}
         />
 
-        <AddInventoryDrawer
-          open={addDrawerOpen}
-          onClose={() => { setAddDrawerOpen(false); setEditItem(null); }}
+        <InventoryDialog
+          open={dialogOpen}
+          onClose={handleCloseDialog}
           onCreate={handleCreateInventory}
           onSubmit={handleEditInventory}
-          initial={editItem}
-          submitLabel={editItem ? 'Save Changes' : 'Add Inventory'}
+          initial={selectedItem}
+          mode={dialogMode}
         />
 
         <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
@@ -296,11 +381,23 @@ function Inventory() {
           </Alert>
         </Snackbar>
       </Box>
-    </CRMLayout>
+    </UnifiedLayout>
   );
 }
 
-function InventoryTable({ rows, formatDate, formatCurrency, sort, onSortChange, onStatusChange }) {
+function InventoryTable({ rows, formatDate, formatCurrency, sort, onSortChange, onStatusChange, onRowClick }) {
+  const getAvailabilityColor = (status) => {
+    if (status === 'pending') return '#ff9800'; // Orange
+    if (status === 'sold') return '#f44336'; // Red
+    return '#4caf50'; // Green for available
+  };
+
+  const getAvailabilityLabel = (status) => {
+    if (status === 'pending') return 'PENDING';
+    if (status === 'sold') return 'SOLD';
+    return 'AVAILABLE';
+  };
+
   return (
     <TableContainer>
       <Table
@@ -320,65 +417,57 @@ function InventoryTable({ rows, formatDate, formatCurrency, sort, onSortChange, 
             padding: '8px 4px'
           },
           '& tbody tr:hover': {
-            backgroundColor: 'rgba(255,255,255,0.04)'
+            backgroundColor: 'rgba(255,255,255,0.04)',
+            cursor: 'pointer'
           }
         }}
       >
         <TableHead>
           <TableRow>
-            <SortableHeader label="FAC" column="facility" sort={sort} onSortChange={onSortChange} />
-            <SortableHeader label="Name" column="name" sort={sort} onSortChange={onSortChange} />
+            {/* Home Information */}
+            <SortableHeader label="Availability" column="availabilityStatus" sort={sort} onSortChange={onSortChange} />
+            <SortableHeader label="Factory" column="factory" sort={sort} onSortChange={onSortChange} />
+            <SortableHeader label="Serial Number" column="serialNumber" sort={sort} onSortChange={onSortChange} />
             <SortableHeader label="Model" column="model" sort={sort} onSortChange={onSortChange} />
             <SortableHeader label="Size" column="size" sort={sort} onSortChange={onSortChange} />
+            <SortableHeader label="Year" column="year" sort={sort} onSortChange={onSortChange} />
             <SortableHeader label="B/B" column="bedBath" sort={sort} onSortChange={onSortChange} />
-            <SortableHeader label="PO" column="po" sort={sort} onSortChange={onSortChange} />
+            <SortableHeader label="Sq Ft" column="squareFeet" sort={sort} onSortChange={onSortChange} />
             <SortableHeader label="Invoice" column="invoice" sort={sort} onSortChange={onSortChange} />
-            <SortableHeader label="DEL/SET" column="deliverySetup" sort={sort} onSortChange={onSortChange} />
-            <SortableHeader label="A/C" column="ac" sort={sort} onSortChange={onSortChange} />
-            <SortableHeader label="T/D" column="tileDelivery" sort={sort} onSortChange={onSortChange} />
-            <SortableHeader label="Steps" column="steps" sort={sort} onSortChange={onSortChange} />
-            <SortableHeader label="Trim Out" column="trimOut" sort={sort} onSortChange={onSortChange} />
-            <SortableHeader label="Skirting" column="skirting" sort={sort} onSortChange={onSortChange} />
-            <SortableHeader label="Pad" column="pad" sort={sort} onSortChange={onSortChange} />
-            <SortableHeader label="ESC" column="esc" sort={sort} onSortChange={onSortChange} />
-            <SortableHeader label="MISC" column="misc" sort={sort} onSortChange={onSortChange} />
-            <SortableHeader label="SRG" column="srg" sort={sort} onSortChange={onSortChange} />
             <SortableHeader label="Sales Price" column="salesPrice" sort={sort} onSortChange={onSortChange} />
-            <TableCell sx={{ fontWeight: 600, color: 'rgba(255,255,255,0.9)' }}>Status</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
           {rows.map((row) => (
-            <TableRow key={row.id} hover>
-              <TableCell>{row.facility || '-'}</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>{row.name || '-'}</TableCell>
-              <TableCell>{row.model || '-'}</TableCell>
-              <TableCell>{row.size || '-'}</TableCell>
-              <TableCell>{row.bedBath || '-'}</TableCell>
-              <TableCell>{row.po || '-'}</TableCell>
-              <TableCell sx={{ textAlign: 'right' }}>{formatCurrency(row.invoice)}</TableCell>
-              <TableCell sx={{ textAlign: 'right' }}>{formatCurrency(row.deliverySetup)}</TableCell>
-              <TableCell sx={{ textAlign: 'right' }}>{formatCurrency(row.ac)}</TableCell>
-              <TableCell sx={{ textAlign: 'right' }}>{formatCurrency(row.tileDelivery)}</TableCell>
-              <TableCell sx={{ textAlign: 'right' }}>{formatCurrency(row.steps)}</TableCell>
-              <TableCell sx={{ textAlign: 'right' }}>{formatCurrency(row.trimOut)}</TableCell>
-              <TableCell sx={{ textAlign: 'right' }}>{formatCurrency(row.skirting)}</TableCell>
-              <TableCell sx={{ textAlign: 'right' }}>{formatCurrency(row.pad)}</TableCell>
-              <TableCell sx={{ textAlign: 'right' }}>{formatCurrency(row.esc)}</TableCell>
-              <TableCell sx={{ textAlign: 'right' }}>{formatCurrency(row.misc)}</TableCell>
-              <TableCell sx={{ textAlign: 'right' }}>{row.srg ? `${row.srg}%` : '-'}</TableCell>
-              <TableCell sx={{ textAlign: 'right', fontWeight: 700, color: '#90caf9' }}>{formatCurrency(row.salesPrice)}</TableCell>
-              <TableCell>
-                <StatusButton
-                  status={row.status}
-                  onChange={(newStatus) => onStatusChange(row.id, newStatus)}
+            <TableRow key={row.id} hover onClick={() => onRowClick(row)}>
+              {/* Availability Status */}
+              <TableCell sx={{ textAlign: 'center' }}>
+                <Chip
+                  label={getAvailabilityLabel(row.availabilityStatus)}
+                  size="small"
+                  sx={{
+                    backgroundColor: getAvailabilityColor(row.availabilityStatus),
+                    color: 'white',
+                    fontWeight: 600,
+                    fontSize: '0.7rem'
+                  }}
                 />
               </TableCell>
+              {/* Home Information */}
+              <TableCell sx={{ textAlign: 'center' }}>{row.factory || '-'}</TableCell>
+              <TableCell sx={{ textAlign: 'center' }}>{row.serialNumber || row.serialNumber1 || '-'}</TableCell>
+              <TableCell sx={{ textAlign: 'center' }}>{row.model || '-'}</TableCell>
+              <TableCell sx={{ textAlign: 'center' }}>{row.size || '-'}</TableCell>
+              <TableCell sx={{ textAlign: 'center' }}>{row.year || '-'}</TableCell>
+              <TableCell sx={{ textAlign: 'center' }}>{row.bedBath || '-'}</TableCell>
+              <TableCell sx={{ textAlign: 'center' }}>{row.squareFeet ? `${row.squareFeet.toLocaleString()}` : '-'}</TableCell>
+              <TableCell sx={{ textAlign: 'center' }}>{formatCurrency(row.invoice)}</TableCell>
+              <TableCell sx={{ textAlign: 'center', fontWeight: 700, color: '#90caf9' }}>{formatCurrency(row.salesPrice)}</TableCell>
             </TableRow>
           ))}
           {rows.length === 0 && (
             <TableRow>
-              <TableCell colSpan={19} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+              <TableCell colSpan={10} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                 No inventory items to display.
               </TableCell>
             </TableRow>
@@ -399,7 +488,7 @@ function SortableHeader({ label, column, sort, onSortChange }) {
     }
   };
   return (
-    <TableCell onClick={handleClick} sx={{ cursor: 'pointer', whiteSpace: 'nowrap' }}>
+    <TableCell onClick={handleClick} sx={{ cursor: 'pointer', whiteSpace: 'nowrap', textAlign: 'center' }}>
       {label}{' '}{isActive ? (sort.direction === 'asc' ? '▲' : '▼') : ''}
     </TableCell>
   );

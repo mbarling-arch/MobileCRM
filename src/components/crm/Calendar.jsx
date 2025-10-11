@@ -1,977 +1,709 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
-import { format, parse, startOfWeek, getDay } from 'date-fns';
-import { enUS } from 'date-fns/locale';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
-  Paper,
-  Typography,
   Button,
-  Stack,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   TextField,
-  Select,
   MenuItem,
-  FormControl,
-  InputLabel,
-  Chip,
-  IconButton,
-  Tooltip,
-  Drawer,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
-  Divider as MuiDivider,
-  InputAdornment,
-  Autocomplete,
-  Checkbox,
   FormControlLabel,
-  Collapse
+  Checkbox,
+  useMediaQuery,
+  Typography,
+  Stack,
+  IconButton
 } from '@mui/material';
-import ViewWeekIcon from '@mui/icons-material/ViewWeek';
-import CalendarViewMonthIcon from '@mui/icons-material/CalendarViewMonth';
-import PaletteIcon from '@mui/icons-material/Palette';
-import AddIcon from '@mui/icons-material/Add';
-import SearchIcon from '@mui/icons-material/Search';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import { collection, onSnapshot, query, orderBy, collectionGroup, addDoc, serverTimestamp, getDocs, where } from 'firebase/firestore';
+import { Close as CloseIcon } from '@mui/icons-material';
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import listPlugin from '@fullcalendar/list';
+import interactionPlugin from '@fullcalendar/interaction';
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, query, where } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { useUser } from '../../UserContext';
-import CRMLayout from '../CRMLayout';
-import 'react-big-calendar/lib/css/react-big-calendar.css';
+import { useUser } from '../../hooks/useUser';
+import UnifiedLayout from '../UnifiedLayout';
+import CalendarSidebar from './CalendarSidebar';
 
-// Setup the localizer for react-big-calendar
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek,
-  getDay,
-  locales: {
-    'en-US': enUS,
-  },
-});
+// User color palette for calendar
+const USER_COLORS = [
+  '#8C57FF', // primary purple
+  '#FF4C51', // error red
+  '#FFB400', // warning amber
+  '#56CA00', // success green
+  '#16B1FF', // info cyan
+  '#F0718D', // pink
+  '#0D9394', // teal
+  '#7E4EE6'  // dark purple
+];
 
-// Custom event component to style events
-const EventComponent = ({ event }) => (
-  <div style={{
-    backgroundColor: event.color || '#1976d2',
-    color: 'white',
-    padding: '2px 6px',
-    borderRadius: '4px',
-    fontSize: '12px',
-    fontWeight: 'bold',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap'
-  }}>
-    {event.title}
-  </div>
-);
-
-// Custom toolbar component
-const CustomToolbar = ({ label, view, views, onView, onNavigate, localizer: { messages } }) => {
-  const navigate = (action) => onNavigate(action);
-
-  return (
-    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, p: 2, backgroundColor: '#2a2746', borderRadius: 2 }}>
-      <Stack direction="row" spacing={1}>
-        <Button variant="outlined" onClick={() => navigate('PREV')}>Prev</Button>
-        <Button variant="outlined" onClick={() => navigate('TODAY')}>Today</Button>
-        <Button variant="outlined" onClick={() => navigate('NEXT')}>Next</Button>
-      </Stack>
-      <Typography variant="h6" sx={{ color: 'white', fontWeight: 'bold' }}>
-        {label}
-      </Typography>
-      <Stack direction="row" spacing={1}>
-        {views.map(viewName => (
-          <Button
-            key={viewName}
-            variant={view === viewName ? "contained" : "outlined"}
-            onClick={() => onView(viewName)}
-            startIcon={viewName === 'week' ? <ViewWeekIcon /> : <CalendarViewMonthIcon />}
-          >
-            {viewName === 'week' ? 'Week' : 'Month'}
-          </Button>
-        ))}
-      </Stack>
-    </Box>
-  );
-};
-
-function CalendarPage() {
+function CalendarApp() {
   const { userProfile } = useUser();
-
   const companyId = userProfile?.companyId || 'demo-company';
-  const locationId = userProfile?.locationId || 'demo-location';
-  const currentUserEmail = userProfile?.email || userProfile?.firebaseUser?.email;
-  const userId = userProfile?.firebaseUser?.uid;
+  const locationId = userProfile?.locationId;
 
+  const [calendarApi, setCalendarApi] = useState(null);
   const [appointments, setAppointments] = useState([]);
-  const [view, setView] = useState('month');
-  const [userColors, setUserColors] = useState({});
-  const [colorDialogOpen, setColorDialogOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState('');
-  const [selectedColor, setSelectedColor] = useState('#1976d2');
-  const [addAppointmentOpen, setAddAppointmentOpen] = useState(false);
-  const [appointmentForm, setAppointmentForm] = useState({
-    title: '',
-    date: '',
-    time: '',
-    description: '',
-    type: 'lead', // 'lead' or 'prospect'
-    recordId: '',
-    recordName: ''
-  });
-  const [savingColors, setSavingColors] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
-  const [selectedRecord, setSelectedRecord] = useState(null);
-  const [savingAppointment, setSavingAppointment] = useState(false);
-  const [leads, setLeads] = useState([]);
-  const [prospects, setProspects] = useState([]);
-  const [deals, setDeals] = useState([]);
-  const [locationUsers, setLocationUsers] = useState([]);
-  const [selectedUsers, setSelectedUsers] = useState([currentUserEmail]); // Start with current user selected
-  const [userFilterExpanded, setUserFilterExpanded] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [customers, setCustomers] = useState([]); // All leads, prospects, deals
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [addEventOpen, setAddEventOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [selectedUserFilters, setSelectedUserFilters] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
 
-  // Available colors for users
-  const colorOptions = [
-    '#1976d2', // Blue
-    '#dc004e', // Red
-    '#4caf50', // Green
-    '#ff9800', // Orange
-    '#9c27b0', // Purple
-    '#00bcd4', // Cyan
-    '#ff5722', // Deep Orange
-    '#607d8b', // Blue Grey
-    '#795548', // Brown
-    '#e91e63', // Pink
-  ];
+  const calendarRef = useRef();
+  const mdAbove = useMediaQuery((theme) => theme.breakpoints.up('md'));
 
-  // Fetch appointments from leads and prospects
+  // Initialize calendar API
+  useEffect(() => {
+    if (calendarRef.current) {
+      setCalendarApi(calendarRef.current.getApi());
+    }
+  }, []);
+
+  // Load users at this location from the proper path
+  useEffect(() => {
+    if (!companyId || !locationId) return;
+
+    // Query users from companies/{companyId}/locations/{locationId}/users
+    const usersRef = collection(db, 'companies', companyId, 'locations', locationId, 'users');
+
+    const unsub = onSnapshot(usersRef, (snapshot) => {
+      const usersData = snapshot.docs.map((doc, index) => ({
+        id: doc.id,
+        email: doc.data().email,
+        name: doc.data().displayName || doc.data().name || doc.data().email,
+        color: USER_COLORS[index % USER_COLORS.length]
+      }));
+      setUsers(usersData);
+      
+      // Select all users by default
+      setSelectedUserFilters(usersData.map(u => u.email));
+    });
+
+    return () => unsub();
+  }, [companyId, locationId]);
+
+  // Load all appointments from leads, prospects, and deals
   useEffect(() => {
     if (!companyId) return;
 
+    const allAppointments = [];
     const unsubs = [];
 
-    // Helper function to fetch appointments for a specific record
-    const fetchRecordAppointments = async (recordType, recordId, recordData) => {
-      const appointmentsQuery = query(
-        collection(db, 'companies', companyId, recordType, recordId, 'appointments'),
-        orderBy('at', 'asc')
-      );
+    // Helper to fetch appointments AND visits for a specific collection
+    const fetchAppointments = (docType) => {
+      const recordsRef = collection(db, 'companies', companyId, docType);
+      const unsub = onSnapshot(recordsRef, (recordsSnapshot) => {
+        recordsSnapshot.docs.forEach((recordDoc) => {
+          const recordData = recordDoc.data();
+          
+          // Fetch appointments
+          const appointmentsRef = collection(db, 'companies', companyId, docType, recordDoc.id, 'appointments');
+          const apptUnsub = onSnapshot(appointmentsRef, (apptSnapshot) => {
+            apptSnapshot.docs.forEach((apptDoc) => {
+              const appt = apptDoc.data();
+              const appointmentEvent = {
+                id: `appt-${docType}-${recordDoc.id}-${apptDoc.id}`,
+                title: appt.title || `📅 ${recordData.firstName || ''} ${recordData.lastName || ''}`.trim() || 'Appointment',
+                start: appt.at?.toDate?.() || appt.start?.toDate?.(),
+                end: appt.endAt?.toDate?.() || appt.end?.toDate?.() || appt.at?.toDate?.(),
+                extendedProps: {
+                  description: appt.notes || '',
+                  assignedTo: appt.assignedTo || recordData.assignedTo || '',
+                  recordType: docType,
+                  recordId: recordDoc.id,
+                  recordName: `${recordData.firstName || ''} ${recordData.lastName || ''}`.trim(),
+                  eventType: 'appointment'
+                }
+              };
+              
+              const existingIndex = allAppointments.findIndex(a => a.id === appointmentEvent.id);
+              if (existingIndex >= 0) {
+                allAppointments[existingIndex] = appointmentEvent;
+              } else {
+                allAppointments.push(appointmentEvent);
+              }
+            });
+            setAppointments([...allAppointments]);
+          });
+          unsubs.push(apptUnsub);
 
-      const unsub = onSnapshot(appointmentsQuery, (apptsSnap) => {
-        const appointments = apptsSnap.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          type: recordType.slice(0, -1), // Remove 's' to get 'lead' or 'prospect'
-          recordId,
-          recordName: recordType === 'leads'
-            ? `${recordData.firstName || ''} ${recordData.lastName || ''}`.trim() || 'Unknown Lead'
-            : `${recordData.firstName || ''} ${recordData.lastName || ''}`.trim() || 'Unknown Prospect'
-        }));
-
-        setAppointments(prev => {
-          const filtered = prev.filter(apt => !(apt.type === recordType.slice(0, -1) && apt.recordId === recordId));
-          return [...filtered, ...appointments];
-        });
+          // Fetch visits
+          const visitsRef = collection(db, 'companies', companyId, docType, recordDoc.id, 'visits');
+          const visitUnsub = onSnapshot(visitsRef, (visitSnapshot) => {
+            visitSnapshot.docs.forEach((visitDoc) => {
+              const visit = visitDoc.data();
+              const visitEvent = {
+                id: `visit-${docType}-${recordDoc.id}-${visitDoc.id}`,
+                title: visit.title || `🏠 ${recordData.firstName || ''} ${recordData.lastName || ''}`.trim() || 'Visit',
+                start: visit.visitedAt?.toDate?.() || visit.start?.toDate?.(),
+                end: visit.visitEndAt?.toDate?.() || visit.end?.toDate?.() || visit.visitedAt?.toDate?.(),
+                extendedProps: {
+                  description: visit.notes || '',
+                  assignedTo: visit.assignedTo || recordData.assignedTo || '',
+                  recordType: docType,
+                  recordId: recordDoc.id,
+                  recordName: `${recordData.firstName || ''} ${recordData.lastName || ''}`.trim(),
+                  eventType: 'visit'
+                }
+              };
+              
+              const existingIndex = allAppointments.findIndex(a => a.id === visitEvent.id);
+              if (existingIndex >= 0) {
+                allAppointments[existingIndex] = visitEvent;
+              } else {
+                allAppointments.push(visitEvent);
+              }
+            });
+            setAppointments([...allAppointments]);
+          });
+          unsubs.push(visitUnsub);
       });
-
+    });
       unsubs.push(unsub);
     };
 
-    // Fetch all leads and their appointments
-    const leadsQuery = query(collection(db, 'companies', companyId, 'leads'));
-    const leadsUnsub = onSnapshot(leadsQuery, (leadsSnap) => {
-      leadsSnap.docs.forEach(leadDoc => {
-        fetchRecordAppointments('leads', leadDoc.id, leadDoc.data());
-      });
-    });
-
-    // Fetch all prospects and their appointments
-    const prospectsQuery = query(collection(db, 'companies', companyId, 'prospects'));
-    const prospectsUnsub = onSnapshot(prospectsQuery, (prospectsSnap) => {
-      prospectsSnap.docs.forEach(prospectDoc => {
-        fetchRecordAppointments('prospects', prospectDoc.id, prospectDoc.data());
-      });
-    });
-
-    // Fetch all deals and their appointments
-    const dealsQuery = query(collection(db, 'companies', companyId, 'deals'));
-    const dealsUnsub = onSnapshot(dealsQuery, (dealsSnap) => {
-      dealsSnap.docs.forEach(dealDoc => {
-        fetchRecordAppointments('deals', dealDoc.id, dealDoc.data());
-      });
-    });
-
-    unsubs.push(leadsUnsub, prospectsUnsub, dealsUnsub);
+    // Fetch from all sources
+    fetchAppointments('leads');
+    fetchAppointments('prospects');
+    fetchAppointments('deals');
 
     return () => unsubs.forEach(u => u());
   }, [companyId]);
 
-  // Load user color preferences
-  useEffect(() => {
-    if (!userId || !companyId) return;
-
-    const loadColors = async () => {
-      try {
-        const { doc, getDoc } = await import('firebase/firestore');
-        const colorPrefsRef = doc(db, 'companies', companyId, 'users', userId, 'preferences', 'calendarColors');
-        const colorPrefsSnap = await getDoc(colorPrefsRef);
-
-        if (colorPrefsSnap.exists()) {
-          const colorData = colorPrefsSnap.data();
-          setUserColors(colorData.colors || {});
-        }
-      } catch (error) {
-        console.error('Error loading color preferences:', error);
-      }
-    };
-
-    loadColors();
-  }, [userId, companyId]);
-
-  // Fetch leads, prospects, and deals for search functionality
+  // Load all customers (leads, prospects, deals) for search - deduplicated by furthest stage
   useEffect(() => {
     if (!companyId) return;
+
+    let allLeads = [];
+    let allProspects = [];
+    let allDeals = [];
 
     const unsubs = [];
 
     // Fetch leads
-    const leadsQuery = query(collection(db, 'companies', companyId, 'leads'));
-    const leadsUnsub = onSnapshot(leadsQuery, (snap) => {
-      const leadsData = snap.docs.map(doc => ({
+    const leadsRef = collection(db, 'companies', companyId, 'leads');
+    const leadsUnsub = onSnapshot(leadsRef, (snapshot) => {
+      allLeads = snapshot.docs.map(doc => ({
         id: doc.id,
-        ...doc.data(),
         type: 'lead',
-        displayName: `${doc.data().firstName || ''} ${doc.data().lastName || ''}`.trim() || 'Unknown Lead'
+        name: `${doc.data().firstName || ''} ${doc.data().lastName || ''}`.trim() || 'Unnamed Lead',
+        email: doc.data().email || '',
+        phone: doc.data().phone || '',
+        leadId: doc.id,
+        ...doc.data()
       }));
-      setLeads(leadsData);
+      updateDeduplicatedCustomers();
     });
     unsubs.push(leadsUnsub);
 
     // Fetch prospects
-    const prospectsQuery = query(collection(db, 'companies', companyId, 'prospects'));
-    const prospectsUnsub = onSnapshot(prospectsQuery, (snap) => {
-      const prospectsData = snap.docs.map(doc => ({
+    const prospectsRef = collection(db, 'companies', companyId, 'prospects');
+    const prospectsUnsub = onSnapshot(prospectsRef, (snapshot) => {
+      allProspects = snapshot.docs.map(doc => ({
         id: doc.id,
-        ...doc.data(),
         type: 'prospect',
-        displayName: `${doc.data().firstName || ''} ${doc.data().lastName || ''}`.trim() || 'Unknown Prospect'
+        name: `${doc.data().firstName || ''} ${doc.data().lastName || ''}`.trim() || 'Unnamed Prospect',
+        email: doc.data().email || '',
+        phone: doc.data().phone || '',
+        prospectId: doc.id,
+        leadId: doc.data().leadId,
+        ...doc.data()
       }));
-      setProspects(prospectsData);
+      updateDeduplicatedCustomers();
     });
     unsubs.push(prospectsUnsub);
 
     // Fetch deals
-    const dealsQuery = query(collection(db, 'companies', companyId, 'deals'));
-    const dealsUnsub = onSnapshot(dealsQuery, (snap) => {
-      const dealsData = snap.docs.map(doc => ({
+    const dealsRef = collection(db, 'companies', companyId, 'deals');
+    const dealsUnsub = onSnapshot(dealsRef, (snapshot) => {
+      allDeals = snapshot.docs.map(doc => ({
         id: doc.id,
-        ...doc.data(),
         type: 'deal',
-        displayName: `${doc.data().firstName || ''} ${doc.data().lastName || ''}`.trim() || 'Unknown Deal'
+        name: `${doc.data().firstName || ''} ${doc.data().lastName || ''}`.trim() || 'Unnamed Deal',
+        email: doc.data().email || '',
+        phone: doc.data().phone || '',
+        dealId: doc.id,
+        prospectId: doc.data().prospectId,
+        leadId: doc.data().leadId,
+        ...doc.data()
       }));
-      setDeals(dealsData);
+      updateDeduplicatedCustomers();
     });
     unsubs.push(dealsUnsub);
+
+    // Deduplicate: Show only furthest stage (Deal > Prospect > Lead)
+    const updateDeduplicatedCustomers = () => {
+      const customerMap = new Map();
+
+      // First add all leads
+      allLeads.forEach(lead => {
+        const key = lead.leadId || lead.id;
+        customerMap.set(key, lead);
+      });
+
+      // Override with prospects (higher priority)
+      allProspects.forEach(prospect => {
+        const key = prospect.leadId || prospect.prospectId || prospect.id;
+        customerMap.set(key, prospect);
+      });
+
+      // Override with deals (highest priority)
+      allDeals.forEach(deal => {
+        const key = deal.leadId || deal.prospectId || deal.dealId || deal.id;
+        customerMap.set(key, deal);
+      });
+
+      setCustomers(Array.from(customerMap.values()));
+    };
 
     return () => unsubs.forEach(u => u());
   }, [companyId]);
 
-  // Fetch users in the same location
-  useEffect(() => {
-    if (!companyId || !locationId) return;
+  // Filter appointments based on selected users
+  const filteredAppointments = appointments.filter(appt => {
+    // If no filters selected, show none
+    if (selectedUserFilters.length === 0) return false;
+    
+    // Show appointments assigned to selected users
+    const assignedTo = appt.extendedProps.assignedTo;
+    return selectedUserFilters.includes(assignedTo);
+  });
 
-    const fetchLocationUsers = async () => {
-      try {
-        const usersQuery = query(
-          collection(db, 'companies', companyId, 'users'),
-          where('locationId', '==', locationId)
-        );
-        const usersSnap = await getDocs(usersQuery);
-        const users = usersSnap.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          email: doc.data().email || doc.data().firebaseUser?.email
-        })).filter(user => user.email); // Only include users with emails
-
-        setLocationUsers(users);
-      } catch (error) {
-        console.error('Error fetching location users:', error);
-      }
+  // Assign colors based on user
+  const appointmentsWithColors = filteredAppointments.map(appt => {
+    const user = users.find(u => u.email === appt.extendedProps.assignedTo);
+    return {
+      ...appt,
+      backgroundColor: user?.color || '#8C57FF',
+      borderColor: user?.color || '#8C57FF'
     };
+  });
 
-    fetchLocationUsers();
-  }, [companyId, locationId, currentUserEmail]);
+  // Handle date click (create new event)
+  const handleDateClick = (info) => {
+    const startDate = new Date(info.date);
+    const endDate = new Date(info.date);
+    endDate.setHours(endDate.getHours() + 1); // Default 1 hour duration
 
-  // Transform appointments for calendar - filter by selected users
-  const calendarEvents = useMemo(() => {
-    return appointments
-      .filter(apt => selectedUsers.includes(apt.createdBy))
-      .map(apt => ({
-        id: apt.id,
-        title: apt.title,
-        start: apt.at?.toDate ? apt.at.toDate() : new Date(apt.at),
-        end: apt.at?.toDate ? apt.at.toDate() : new Date(apt.at),
-        color: userColors[apt.createdBy] || '#1976d2',
-        createdBy: apt.createdBy,
-        description: apt.description,
-        type: apt.type,
-        recordId: apt.recordId,
-      }));
-  }, [appointments, userColors, selectedUsers]);
+    // Auto-assign to current user
+    const defaultAssignee = users.length > 0 ? users.find(u => u.email === userProfile?.email)?.email || users[0]?.email || '' : '';
 
-  // Combined records for search - prioritize most advanced status (deal > prospect > lead)
-  const allRecords = useMemo(() => {
-    const recordsMap = new Map();
-
-    // Add leads first (lowest priority)
-    leads.forEach(lead => {
-      recordsMap.set(lead.email || lead.phone || lead.id, {
-        ...lead,
-        priority: 1 // Lowest priority for leads
-      });
+    setSelectedEvent({
+      type: 'appointment', // 'appointment' or 'visit'
+      title: '',
+      start: startDate,
+      end: endDate,
+      allDay: false,
+      assignedTo: defaultAssignee,
+      description: '',
+      customerId: null,
+      customerType: null,
+      customerName: ''
     });
+    setSelectedCustomer(null);
+    setCustomerSearch('');
+    setAddEventOpen(true);
+  };
 
-    // Add prospects - they override leads with same contact info
-    prospects.forEach(prospect => {
-      const key = prospect.email || prospect.phone || prospect.id;
-      recordsMap.set(key, {
-        ...prospect,
-        priority: 2 // Medium priority for prospects
-      });
+  // Handle event click (edit event)
+  const handleEventClick = (clickInfo) => {
+    const event = clickInfo.event;
+    setSelectedEvent({
+      id: event.id,
+      title: event.title,
+      start: event.start,
+      end: event.end,
+      allDay: event.allDay,
+      calendar: event.extendedProps.calendar,
+      description: event.extendedProps.description || '',
+      guests: event.extendedProps.guests || []
     });
+    setAddEventOpen(true);
+  };
 
-    // Add deals - they override prospects/leads with same contact info (highest priority)
-    deals.forEach(deal => {
-      const key = deal.email || deal.phone || deal.id;
-      recordsMap.set(key, {
-        ...deal,
-        priority: 3 // Highest priority for deals
-      });
-    });
-
-    // Return only the highest priority records
-    return Array.from(recordsMap.values()).sort((a, b) => b.priority - a.priority);
-  }, [leads, prospects, deals]);
-
-  // Filter search results based on query
-  const filteredSearchResults = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    const query = searchQuery.toLowerCase().trim();
-    return allRecords.filter(record =>
-      record.displayName.toLowerCase().includes(query) ||
-      (record.email && record.email.toLowerCase().includes(query)) ||
-      (record.phone && record.phone.includes(query))
-    ).slice(0, 10); // Limit to 10 results
-  }, [allRecords, searchQuery]);
-
-  // Get unique users for color coding
-  const uniqueUsers = useMemo(() => {
-    const users = [...new Set(appointments.map(apt => apt.createdBy).filter(Boolean))];
-    return users.sort();
-  }, [appointments]);
-
-  // Handle color selection
-  const handleColorSave = async () => {
-    if (!selectedUser || !selectedColor || !userId || !companyId) return;
-
-    setSavingColors(true);
+  // Handle event drop/resize
+  const handleEventChange = async (changeInfo) => {
+    const event = changeInfo.event;
+    
     try {
-      const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
-      const colorPrefsRef = doc(db, 'companies', companyId, 'users', userId, 'preferences', 'calendarColors');
-
-      const newColors = {
-        ...userColors,
-        [selectedUser]: selectedColor
-      };
-
-      await setDoc(colorPrefsRef, {
-        colors: newColors,
-        updatedAt: serverTimestamp(),
-        updatedBy: currentUserEmail
+      const eventRef = doc(db, 'companies', companyId, 'calendarEvents', event.id);
+      await updateDoc(eventRef, {
+        start: event.start,
+        end: event.end,
+        allDay: event.allDay
       });
-
-      setUserColors(newColors);
-      setColorDialogOpen(false);
-      setSelectedUser('');
-      setSelectedColor('#1976d2');
     } catch (error) {
-      console.error('Error saving color preferences:', error);
-    } finally {
-      setSavingColors(false);
+      console.error('Error updating event:', error);
+      changeInfo.revert();
     }
   };
 
-  // Handle adding appointment
-  const handleAddAppointment = () => {
-    setAddAppointmentOpen(true);
-    setAppointmentForm({
-      title: '',
-      date: '',
-      time: '',
-      description: '',
-      type: 'lead',
-      recordId: '',
-      recordName: ''
-    });
-    setSelectedRecord(null);
-    setSearchQuery('');
-  };
-
-  // Handle selecting a record from search
-  const handleSelectRecord = (record) => {
-    setSelectedRecord(record);
-    setAppointmentForm(prev => ({
-      ...prev,
-      type: record.type,
-      recordId: record.id,
-      recordName: record.displayName
-    }));
-    setSearchQuery(record.displayName);
-  };
-
-  // Handle saving appointment
-  const handleSaveAppointment = async () => {
-    if (!appointmentForm.title.trim() || !appointmentForm.date || !appointmentForm.time || !selectedRecord) {
+  // Save event (add appointment or visit to customer record)
+  const handleSaveEvent = async () => {
+    if (!selectedEvent.title) {
+      alert('Please enter a title');
       return;
     }
 
-    setSavingAppointment(true);
+    if (!selectedCustomer) {
+      alert('Please select a customer');
+      return;
+    }
+
+    if (!selectedEvent.assignedTo) {
+      alert('Please assign to a user');
+      return;
+    }
+
     try {
-      const dateTime = new Date(`${appointmentForm.date}T${appointmentForm.time}:00`);
+      const collectionName = selectedCustomer.type === 'lead' ? 'leads' : selectedCustomer.type === 'prospect' ? 'prospects' : 'deals';
+      const eventCollection = selectedEvent.type === 'visit' ? 'visits' : 'appointments';
 
-      // Determine collection path based on record type
-      const collectionPath = selectedRecord.type === 'deal'
-        ? `companies/${companyId}/deals/${selectedRecord.id}/appointments`
-        : selectedRecord.type === 'prospect'
-        ? `companies/${companyId}/prospects/${selectedRecord.id}/appointments`
-        : `companies/${companyId}/leads/${selectedRecord.id}/appointments`;
+      console.log('Saving to:', `companies/${companyId}/${collectionName}/${selectedCustomer.id}/${eventCollection}`);
 
-      await addDoc(collection(db, collectionPath), {
-        title: appointmentForm.title.trim(),
-        at: dateTime,
-        description: appointmentForm.description.trim(),
+      // Add to customer's sub-collection
+      const docRef = await addDoc(collection(db, 'companies', companyId, collectionName, selectedCustomer.id, eventCollection), {
+        title: selectedEvent.title,
+        [selectedEvent.type === 'visit' ? 'visitedAt' : 'at']: selectedEvent.start,
+        [selectedEvent.type === 'visit' ? 'visitEndAt' : 'endAt']: selectedEvent.end,
+        notes: selectedEvent.description || '',
+        assignedTo: selectedEvent.assignedTo,
         createdAt: serverTimestamp(),
-        createdBy: currentUserEmail
+        createdBy: userProfile?.email || 'system'
       });
-      setAddAppointmentOpen(false);
-      setSelectedRecord(null);
-      setSearchQuery('');
+
+      console.log('Saved successfully! ID:', docRef.id);
+
+      setAddEventOpen(false);
+      setSelectedEvent(null);
+      setSelectedCustomer(null);
+      setCustomerSearch('');
     } catch (error) {
-      console.error('Error saving appointment:', error);
-    } finally {
-      setSavingAppointment(false);
+      console.error('Error saving event:', error);
+      alert('Failed to save event: ' + error.message);
     }
   };
 
-  // Calendar styling
-  const calendarStyle = {
-    height: 'calc(100vh - 300px)',
-    fontFamily: 'inherit',
-    '& .rbc-calendar': {
-      backgroundColor: '#1e1e1e',
-      color: 'white',
-    },
-    '& .rbc-header': {
-      backgroundColor: '#2a2746',
-      color: 'white',
-      padding: '8px',
-      fontWeight: 'bold',
-    },
-    '& .rbc-month-view': {
-      backgroundColor: '#1e1e1e',
-    },
-    '& .rbc-week-view': {
-      backgroundColor: '#1e1e1e',
-    },
-    '& .rbc-today': {
-      backgroundColor: 'rgba(25, 118, 210, 0.1)',
-    },
-    '& .rbc-event': {
-      borderRadius: '4px',
-      border: 'none',
-      color: 'white',
-      fontSize: '12px',
-      padding: '2px 6px',
-    },
-    '& .rbc-event.rbc-selected': {
-      backgroundColor: '#1976d2',
-    },
-    '& .rbc-slot-selection': {
-      backgroundColor: 'rgba(25, 118, 210, 0.5)',
-    },
-    '& .rbc-time-slot': {
-      borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-    },
-    '& .rbc-timeslot-group': {
-      borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-    },
+  // Delete event
+  const handleDeleteEvent = async () => {
+    if (!selectedEvent.id) return;
+    if (!confirm('Delete this event?')) return;
+
+    try {
+      await deleteDoc(doc(db, 'companies', companyId, 'calendarEvents', selectedEvent.id));
+      setAddEventOpen(false);
+      setSelectedEvent(null);
+    } catch (error) {
+      console.error('Error deleting event:', error);
+    }
+  };
+
+  // Go to selected date
+  const handleDateSelect = (date) => {
+    setSelectedDate(date);
+    if (calendarApi) {
+      calendarApi.gotoDate(date);
+    }
   };
 
   return (
-    <CRMLayout>
-      <Box sx={{ p: 3 }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-          <Typography variant="h5" sx={{ fontWeight: 600, color: 'white' }}>
-            Appointment Calendar
-          </Typography>
-          <Stack direction="row" spacing={2}>
-            <Button
-              variant="contained"
-              startIcon={<PaletteIcon />}
-              onClick={() => setColorDialogOpen(true)}
-              sx={{ backgroundColor: '#1976d2' }}
-            >
-              Color Code Users
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={handleAddAppointment}
-              sx={{ backgroundColor: '#4caf50' }}
-            >
-              Add Appointment
-            </Button>
-          </Stack>
-        </Stack>
+    <UnifiedLayout mode="crm">
+      <Box sx={{ display: 'flex', minHeight: 'calc(100vh - 100px)', gap: 0 }}>
+        {/* Left Sidebar */}
+        <CalendarSidebar
+          open={mdAbove || sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          onAddEvent={() => {
+            const startDate = new Date();
+            const endDate = new Date();
+            endDate.setHours(endDate.getHours() + 1);
 
-        {/* User Filter */}
-        {locationUsers.length > 1 && (
-          <Paper sx={{ p: 2, mb: 3, backgroundColor: '#2a2746', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
-              <Typography variant="h6" sx={{ color: 'white' }}>
-                Team Calendar View
-              </Typography>
-              <Button
-                size="small"
-                onClick={() => setUserFilterExpanded(!userFilterExpanded)}
-                endIcon={userFilterExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                sx={{ color: 'rgba(255,255,255,0.7)' }}
-              >
-                {userFilterExpanded ? 'Hide' : 'Show'} Filters
-              </Button>
-            </Stack>
+            // Auto-assign to current user
+            const defaultAssignee = users.length > 0 ? users.find(u => u.email === userProfile?.email)?.email || users[0]?.email || '' : '';
 
-            <Collapse in={userFilterExpanded}>
-              <Typography variant="body2" sx={{ mb: 2, color: 'rgba(255,255,255,0.7)' }}>
-                Select team members whose appointments you want to see:
-              </Typography>
-              <Stack direction="row" spacing={2} flexWrap="wrap">
-                {locationUsers.map(user => (
-                  <FormControlLabel
-                    key={user.email}
-                    control={
-                      <Checkbox
-                        checked={selectedUsers.includes(user.email)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedUsers(prev => [...prev, user.email]);
-                          } else {
-                            setSelectedUsers(prev => prev.filter(email => email !== user.email));
-                          }
-                        }}
-                        sx={{
-                          color: 'rgba(255,255,255,0.7)',
-                          '&.Mui-checked': {
-                            color: userColors[user.email] || '#1976d2',
-                          },
-                        }}
-                      />
-                    }
-                    label={
-                      <Typography sx={{ color: 'white', fontSize: '0.875rem' }}>
-                        {user.email === currentUserEmail ? `${user.email} (You)` : user.email}
-                      </Typography>
-                    }
-                  />
-                ))}
-              </Stack>
-            </Collapse>
+            setSelectedEvent({
+              type: 'appointment',
+              title: '',
+              start: startDate,
+              end: endDate,
+              allDay: false,
+              assignedTo: defaultAssignee,
+              description: ''
+            });
+            setSelectedCustomer(null);
+            setCustomerSearch('');
+            setAddEventOpen(true);
+          }}
+          users={users}
+          selectedUserFilters={selectedUserFilters}
+          onFilterChange={setSelectedUserFilters}
+          onDateSelect={handleDateSelect}
+          selectedDate={selectedDate}
+        />
 
-            {!userFilterExpanded && (
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)' }}>
-                Showing appointments for: {selectedUsers.map(email =>
-                  email === currentUserEmail ? 'You' : email.split('@')[0]
-                ).join(', ')}
-              </Typography>
-            )}
-          </Paper>
-        )}
+        {/* Main Calendar */}
+        <Box sx={{ flex: 1, p: 3, overflow: 'auto' }}>
+          <FullCalendar
+            ref={calendarRef}
+            plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+            initialView="dayGridMonth"
+            headerToolbar={{
+              start: !mdAbove ? 'sidebarToggle,title' : 'title',
+              center: '',
+              end: 'dayGridMonth,timeGridWeek,listMonth'
+            }}
+            customButtons={{
+              sidebarToggle: {
+                text: '☰',
+                click: () => setSidebarOpen(!sidebarOpen)
+              }
+            }}
+            events={appointmentsWithColors}
+            editable={true}
+            selectable={true}
+            selectMirror={true}
+            dayMaxEvents={2}
+            weekends={true}
+            dateClick={handleDateClick}
+            eventClick={handleEventClick}
+            eventDrop={handleEventChange}
+            eventResize={handleEventChange}
+            height="85vh"
+            contentHeight="80vh"
+            aspectRatio={1.8}
+          />
+              </Box>
 
-        {/* User Color Legend */}
-        {uniqueUsers.length > 0 && (
-          <Paper sx={{ p: 2, mb: 3, backgroundColor: '#2a2746', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <Typography variant="h6" sx={{ mb: 2, color: 'white' }}>
-              User Colors
-            </Typography>
-            <Stack direction="row" spacing={1} flexWrap="wrap">
-              {uniqueUsers
-                .filter(user => selectedUsers.includes(user))
-                .map(user => (
-                  <Chip
-                    key={user}
-                    label={user === currentUserEmail ? `${user.split('@')[0]} (You)` : user.split('@')[0]}
-                    sx={{
-                      backgroundColor: userColors[user] || '#1976d2',
-                      color: 'white',
-                      '&:hover': {
-                        backgroundColor: userColors[user] || '#1976d2',
-                        opacity: 0.8
-                      }
-                    }}
-                  />
-                ))}
-            </Stack>
-          </Paper>
-        )}
-
-        {/* Calendar */}
-        <Paper sx={{ p: 2, backgroundColor: '#1e1e1e', border: '1px solid rgba(255,255,255,0.08)' }}>
-          <Box sx={calendarStyle}>
-            <Calendar
-              localizer={localizer}
-              events={calendarEvents}
-              startAccessor="start"
-              endAccessor="end"
-              style={{ height: '100%' }}
-              view={view}
-              onView={setView}
-              components={{
-                event: EventComponent,
-                toolbar: CustomToolbar
-              }}
-              views={['month', 'week']}
-              defaultView="month"
-            />
-          </Box>
-        </Paper>
-
-        {/* Color Selection Dialog */}
-        <Dialog open={colorDialogOpen} onClose={() => setColorDialogOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>Assign Colors to Users</DialogTitle>
+        {/* Add/Edit Event Dialog */}
+        <Dialog 
+          open={addEventOpen} 
+          onClose={() => {
+            setAddEventOpen(false);
+            setSelectedCustomer(null);
+            setCustomerSearch('');
+          }}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography sx={{ fontSize: 20, fontWeight: 700 }}>
+                Add Event
+                  </Typography>
+              <IconButton onClick={() => setAddEventOpen(false)} size="small">
+                <CloseIcon />
+              </IconButton>
+                </Box>
+          </DialogTitle>
           <DialogContent>
-            <Stack spacing={3} sx={{ mt: 2 }}>
-              <FormControl fullWidth>
-                <InputLabel>Select User</InputLabel>
-                <Select
-                  value={selectedUser}
-                  onChange={(e) => setSelectedUser(e.target.value)}
-                  label="Select User"
-                >
-                  {uniqueUsers.map(user => (
-                    <MenuItem key={user} value={user}>{user}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-
+            <Stack spacing={3} sx={{ pt: 2 }}>
+              {/* Event Type Selection */}
               <Box>
-                <Typography variant="subtitle1" sx={{ mb: 1 }}>Select Color</Typography>
-                <Stack direction="row" spacing={1} flexWrap="wrap">
-                  {colorOptions.map(color => (
-                    <Box
-                      key={color}
-                      sx={{
-                        width: 40,
-                        height: 40,
-                        backgroundColor: color,
-                        borderRadius: '50%',
-                        cursor: 'pointer',
-                        border: selectedColor === color ? '3px solid white' : '2px solid transparent',
-                        '&:hover': {
-                          border: '3px solid white'
-                        }
-                      }}
-                      onClick={() => setSelectedColor(color)}
-                    />
-                  ))}
+                <Typography sx={{ fontSize: 13, fontWeight: 500, color: 'text.secondary', mb: 1, textTransform: 'uppercase' }}>
+                  Event Type *
+                </Typography>
+                <Stack direction="row" spacing={2}>
+                  <Button
+                    fullWidth
+                    variant={selectedEvent?.type === 'appointment' ? 'contained' : 'outlined'}
+                    color="primary"
+                    onClick={() => setSelectedEvent(prev => ({ ...prev, type: 'appointment' }))}
+                    sx={{ py: 1.5 }}
+                  >
+                    📅 Set Appointment
+            </Button>
+                  <Button
+                    fullWidth
+                    variant={selectedEvent?.type === 'visit' ? 'contained' : 'outlined'}
+                    color="warning"
+                    onClick={() => setSelectedEvent(prev => ({ ...prev, type: 'visit' }))}
+                    sx={{ py: 1.5 }}
+                  >
+                    🏠 Log a Visit
+                  </Button>
                 </Stack>
               </Box>
 
-              {selectedUser && (
-                <Box sx={{ p: 2, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
-                  <Typography variant="body2">
-                    Preview: <Chip label={selectedUser} sx={{ backgroundColor: selectedColor, color: 'white', ml: 1 }} />
-                  </Typography>
-                </Box>
-              )}
-            </Stack>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setColorDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleColorSave} variant="contained" disabled={!selectedUser || savingColors}>
-              {savingColors ? 'Saving...' : 'Save Color'}
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Add Appointment Drawer */}
-        <Drawer
-          anchor="right"
-          open={addAppointmentOpen}
-          onClose={() => setAddAppointmentOpen(false)}
-          sx={{ zIndex: (t) => t.zIndex.modal + 20 }}
-          PaperProps={{
-            sx: {
-              width: { xs: '100%', sm: 500 },
-              backgroundColor: '#2a2746',
-              color: 'white'
-            }
-          }}
-        >
-          <Box sx={{ p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <Typography variant="h6" sx={{ mb: 3, fontWeight: 'bold' }}>
-              Add New Appointment
-            </Typography>
-
-            <Stack spacing={3} sx={{ flex: 1 }}>
-              {/* Search for Lead/Prospect */}
+              {/* Customer Search */}
               <Box>
-                <Typography variant="subtitle1" sx={{ mb: 1, color: 'rgba(255,255,255,0.9)' }}>
-                  Search Lead or Prospect *
+                <Typography sx={{ fontSize: 13, fontWeight: 500, color: 'text.secondary', mb: 1, textTransform: 'uppercase' }}>
+                  Search Customer *
                 </Typography>
                 <TextField
                   fullWidth
-                  placeholder="Search by name, email, or phone..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  inputProps={{
-                    autoComplete: 'off',
-                    autoCorrect: 'off',
-                    autoCapitalize: 'off',
-                    spellCheck: 'false'
-                  }}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon sx={{ color: 'rgba(255,255,255,0.5)' }} />
-                      </InputAdornment>
-                    ),
-                  }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      backgroundColor: '#1e1e1e',
-                      '& fieldset': { borderColor: 'rgba(255,255,255,0.23)' },
-                      '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.4)' },
-                      '&.Mui-focused fieldset': { borderColor: '#1976d2' },
-                    },
-                    '& .MuiInputBase-input': { color: 'white' },
-                    '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-                  }}
+                  placeholder="Search leads, prospects, or deals..."
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                  sx={{ mb: 1 }}
                 />
-
-                {/* Search Results */}
-                {searchQuery && (
-                  <Paper sx={{ mt: 1, maxHeight: 200, overflow: 'auto', backgroundColor: '#1e1e1e' }}>
-                    <List dense>
-                      {filteredSearchResults.length > 0 ? (
-                        filteredSearchResults.map((record) => (
-                          <ListItem key={record.id} disablePadding>
-                            <ListItemButton
-                              onClick={() => handleSelectRecord(record)}
-                              sx={{
-                                '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' },
-                                '&.Mui-selected': { backgroundColor: 'rgba(25, 118, 210, 0.2)' }
-                              }}
-                            >
-                              <ListItemText
-                                primary={
-                                  <Stack direction="row" alignItems="center" spacing={1}>
-                                    <Typography sx={{ color: 'white' }}>
-                                      {record.displayName}
-                                    </Typography>
-                                    <Chip
-                                      size="small"
-                                      label={record.type}
-                                      color={
-                                        record.type === 'lead' ? 'warning' :
-                                        record.type === 'prospect' ? 'success' :
-                                        'secondary' // purple for deals
-                                      }
-                                      variant="outlined"
-                                      sx={{ fontSize: '0.7rem' }}
-                                    />
-                                  </Stack>
-                                }
-                                secondary={
-                                  <Typography sx={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.8rem' }}>
-                                    {record.email && `Email: ${record.email}`}
-                                    {record.phone && ` • Phone: ${record.phone}`}
-                                  </Typography>
-                                }
-                              />
-                            </ListItemButton>
-                          </ListItem>
-                        ))
-                      ) : (
-                        <ListItem>
-                          <ListItemText
-                            primary={
-                              <Typography sx={{ color: 'rgba(255,255,255,0.6)' }}>
-                                No results found
-                              </Typography>
-                            }
-                          />
-                        </ListItem>
-                      )}
-                    </List>
-                  </Paper>
-                )}
-
-                {/* Selected Record Display */}
-                {selectedRecord && (
-                  <Paper sx={{ mt: 2, p: 2, backgroundColor: '#1e1e1e', border: '1px solid rgba(25, 118, 210, 0.5)' }}>
-                    <Typography variant="subtitle2" sx={{ mb: 1, color: '#1976d2' }}>
-                      Selected:
-                    </Typography>
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      <Typography sx={{ color: 'white' }}>
-                        {selectedRecord.displayName}
+                
+                {/* Selected Customer Display */}
+                {selectedCustomer ? (
+                  <Box sx={{ p: 2, backgroundColor: 'success.lighterOpacity', borderRadius: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box>
+                      <Typography sx={{ fontSize: 15, fontWeight: 600, color: 'text.primary' }}>
+                        {selectedCustomer.name}
                       </Typography>
-                      <Chip
-                        size="small"
-                        label={selectedRecord.type}
-                        color={
-                          selectedRecord.type === 'lead' ? 'warning' :
-                          selectedRecord.type === 'prospect' ? 'success' :
-                          'secondary' // purple for deals
-                        }
-                        variant="outlined"
-                      />
-                    </Stack>
-                  </Paper>
-                )}
+                      <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
+                        {selectedCustomer.type.toUpperCase()} • {selectedCustomer.email || selectedCustomer.phone || 'No contact info'}
+                      </Typography>
+                    </Box>
+                    <Button size="small" onClick={() => { setSelectedCustomer(null); setCustomerSearch(''); }}>
+                      Change
+                    </Button>
+                  </Box>
+                ) : customerSearch.length > 0 ? (
+                  <Box sx={{ maxHeight: 200, overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                    {customers
+                      .filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+                                   c.email?.toLowerCase().includes(customerSearch.toLowerCase()) ||
+                                   c.phone?.includes(customerSearch))
+                      .slice(0, 10)
+                      .map((customer) => (
+                        <Box
+                          key={`${customer.type}-${customer.id}`}
+                          onClick={() => {
+                            setSelectedCustomer(customer);
+                            setCustomerSearch('');
+                          }}
+                              sx={{
+                            p: 1.5,
+                            cursor: 'pointer',
+                            '&:hover': { backgroundColor: 'action.hover' },
+                            borderBottom: '1px solid',
+                            borderColor: 'divider'
+                          }}
+                        >
+                          <Typography sx={{ fontSize: 14, fontWeight: 500 }}>{customer.name}</Typography>
+                          <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
+                            {customer.type.toUpperCase()} • {customer.email || customer.phone || 'No contact'}
+                                    </Typography>
+                        </Box>
+                      ))}
+                  </Box>
+                ) : null}
               </Box>
 
-              <MuiDivider sx={{ backgroundColor: 'rgba(255,255,255,0.1)' }} />
-
-              {/* Appointment Details */}
-              <Box>
-                <Typography variant="subtitle1" sx={{ mb: 2, color: 'rgba(255,255,255,0.9)' }}>
-                  Appointment Details
-                </Typography>
-
-                <Stack spacing={2}>
+              {/* Title */}
                   <TextField
                     fullWidth
                     label="Title *"
-                    value={appointmentForm.title}
-                    onChange={(e) => setAppointmentForm(prev => ({ ...prev, title: e.target.value }))}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        backgroundColor: '#1e1e1e',
-                        '& fieldset': { borderColor: 'rgba(255,255,255,0.23)' },
-                        '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.4)' },
-                        '&.Mui-focused fieldset': { borderColor: '#1976d2' },
-                      },
-                      '& .MuiInputBase-input': { color: 'white' },
-                      '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-                    }}
-                  />
+                value={selectedEvent?.title || ''}
+                onChange={(e) => setSelectedEvent(prev => ({ ...prev, title: e.target.value }))}
+                placeholder={selectedEvent?.type === 'visit' ? 'Visit purpose...' : 'Meeting topic...'}
+              />
 
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              {/* Start Date & Time */}
+              <Box sx={{ display: 'flex', gap: 2 }}>
                     <TextField
                       fullWidth
+                  label="Start Date *"
                       type="date"
-                      label="Date *"
-                      value={appointmentForm.date}
-                      onChange={(e) => setAppointmentForm(prev => ({ ...prev, date: e.target.value }))}
+                  value={selectedEvent?.start ? new Date(selectedEvent.start).toISOString().slice(0, 10) : ''}
+                  onChange={(e) => {
+                    const newStart = new Date(selectedEvent.start);
+                    const selectedDate = new Date(e.target.value);
+                    newStart.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+                    setSelectedEvent(prev => ({ ...prev, start: newStart }));
+                  }}
                       InputLabelProps={{ shrink: true }}
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          backgroundColor: '#1e1e1e',
-                          '& fieldset': { borderColor: 'rgba(255,255,255,0.23)' },
-                          '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.4)' },
-                          '&.Mui-focused fieldset': { borderColor: '#1976d2' },
-                        },
-                        '& .MuiInputBase-input': { color: 'white' },
-                        '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-                      }}
-                    />
+                />
+                <TextField
+                  fullWidth
+                  label="Start Time"
+                  type="time"
+                  value={selectedEvent?.start ? new Date(selectedEvent.start).toTimeString().slice(0, 5) : ''}
+                  onChange={(e) => {
+                    const [hours, minutes] = e.target.value.split(':');
+                    const newStart = new Date(selectedEvent.start);
+                    newStart.setHours(parseInt(hours), parseInt(minutes));
+                    setSelectedEvent(prev => ({ ...prev, start: newStart }));
+                  }}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Box>
 
+              {/* End Date & Time */}
+              <Box sx={{ display: 'flex', gap: 2 }}>
                     <TextField
                       fullWidth
-                      type="time"
-                      label="Time *"
-                      value={appointmentForm.time}
-                      onChange={(e) => setAppointmentForm(prev => ({ ...prev, time: e.target.value }))}
+                  label="End Date *"
+                  type="date"
+                  value={selectedEvent?.end ? new Date(selectedEvent.end).toISOString().slice(0, 10) : ''}
+                  onChange={(e) => {
+                    const newEnd = new Date(selectedEvent.end);
+                    const selectedDate = new Date(e.target.value);
+                    newEnd.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+                    setSelectedEvent(prev => ({ ...prev, end: newEnd }));
+                  }}
                       InputLabelProps={{ shrink: true }}
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          backgroundColor: '#1e1e1e',
-                          '& fieldset': { borderColor: 'rgba(255,255,255,0.23)' },
-                          '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.4)' },
-                          '&.Mui-focused fieldset': { borderColor: '#1976d2' },
-                        },
-                        '& .MuiInputBase-input': { color: 'white' },
-                        '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-                      }}
-                    />
-                  </Stack>
+                />
+                <TextField
+                  fullWidth
+                  label="End Time"
+                  type="time"
+                  value={selectedEvent?.end ? new Date(selectedEvent.end).toTimeString().slice(0, 5) : ''}
+                  onChange={(e) => {
+                    const [hours, minutes] = e.target.value.split(':');
+                    const newEnd = new Date(selectedEvent.end);
+                    newEnd.setHours(parseInt(hours), parseInt(minutes));
+                    setSelectedEvent(prev => ({ ...prev, end: newEnd }));
+                  }}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Box>
 
-                  <TextField
-                    fullWidth
-                    label="Description"
+              {/* Assign To */}
+              <TextField
+                select
+                fullWidth
+                label="Assign To *"
+                value={users.find(u => u.email === selectedEvent?.assignedTo) ? selectedEvent?.assignedTo : (users[0]?.email || '')}
+                onChange={(e) => setSelectedEvent(prev => ({ ...prev, assignedTo: e.target.value }))}
+              >
+                {users.length > 0 ? users.map((user) => (
+                  <MenuItem key={user.id} value={user.email}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: user.color }} />
+                      {user.name}
+                    </Box>
+                  </MenuItem>
+                )) : (
+                  <MenuItem value="">No users found</MenuItem>
+                )}
+              </TextField>
+
+              {/* Notes */}
+              <TextField
+                fullWidth
+                label="Notes"
                     multiline
                     rows={3}
-                    value={appointmentForm.description}
-                    onChange={(e) => setAppointmentForm(prev => ({ ...prev, description: e.target.value }))}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        backgroundColor: '#1e1e1e',
-                        '& fieldset': { borderColor: 'rgba(255,255,255,0.23)' },
-                        '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.4)' },
-                        '&.Mui-focused fieldset': { borderColor: '#1976d2' },
-                      },
-                      '& .MuiInputBase-input': { color: 'white' },
-                      '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-                    }}
+                value={selectedEvent?.description || ''}
+                onChange={(e) => setSelectedEvent(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Add notes about this appointment or visit..."
                   />
                 </Stack>
-              </Box>
-            </Stack>
-
-            {/* Action Buttons */}
-            <Stack direction="row" spacing={2} sx={{ mt: 3, pt: 2, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-              <Button
-                variant="outlined"
-                onClick={() => setAddAppointmentOpen(false)}
-                sx={{ flex: 1, borderColor: 'rgba(255,255,255,0.23)', color: 'white' }}
-              >
+          </DialogContent>
+          <DialogActions sx={{ p: 3 }}>
+            <Button onClick={() => setAddEventOpen(false)}>
                 Cancel
               </Button>
-              <Button
-                variant="contained"
-                onClick={handleSaveAppointment}
-                disabled={
-                  savingAppointment ||
-                  !appointmentForm.title.trim() ||
-                  !appointmentForm.date ||
-                  !appointmentForm.time ||
-                  !selectedRecord
-                }
-                sx={{
-                  flex: 1,
-                  backgroundColor: '#1976d2',
-                  '&:hover': { backgroundColor: '#1565c0' },
-                  '&:disabled': { backgroundColor: 'rgba(25, 118, 210, 0.3)' }
-                }}
-              >
-                {savingAppointment ? 'Saving...' : 'Save Appointment'}
+            <Button onClick={handleSaveEvent} variant="contained" color="primary">
+              Save {selectedEvent?.type === 'visit' ? 'Visit' : 'Appointment'}
               </Button>
-            </Stack>
-          </Box>
-        </Drawer>
+          </DialogActions>
+        </Dialog>
       </Box>
-    </CRMLayout>
+    </UnifiedLayout>
   );
 }
 
-export default CalendarPage;
+export default CalendarApp;

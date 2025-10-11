@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Card, CardContent, Divider, Stack, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, Tabs, Tab, Button } from '@mui/material';
-import CRMLayout from '../CRMLayout';
+import UnifiedLayout from '../UnifiedLayout';
 import { db } from '../../firebase';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
-import { useUser } from '../../UserContext';
+import { useUser } from '../../hooks/useUser';
 import { getSourceMeta, getStatusMeta } from './LeadConstants';
 import PhoneOutlinedIcon from '@mui/icons-material/PhoneOutlined';
 import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined';
@@ -41,13 +41,13 @@ function Deals() {
   };
 
   return (
-    <CRMLayout>
+    <UnifiedLayout mode="crm">
       <Box sx={{ p: 3 }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
           <Typography variant="h5" sx={{ fontWeight: 600 }}>Deals</Typography>
         </Stack>
 
-        <Card sx={{ backgroundColor: '#2a2746', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 6px 18px rgba(0,0,0,0.35)' }}>
+        <Card sx={{ backgroundColor: 'customColors.cardBackground', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 6px 18px rgba(0,0,0,0.35)' }}>
           <CardContent>
             <Tabs value={activeTab} onChange={(e,v)=>setActiveTab(v)} textColor="primary" indicatorColor="primary" sx={{ mb: 1, '& .MuiTab-root': { fontWeight: 600 }, '& .MuiTabs-indicator': { height: 3 } }}>
               <Tab label="MY DEALS" value="my" />
@@ -58,11 +58,11 @@ function Deals() {
               <Table size="small" sx={{ '& thead th': { color: 'rgba(255,255,255,0.9)', fontWeight: 600, borderBottomColor: 'rgba(255,255,255,0.08)' }, '& tbody td': { color: 'rgba(255,255,255,0.92)', borderBottomColor: 'rgba(255,255,255,0.06)' }, '& tbody tr:hover': { backgroundColor: 'rgba(255,255,255,0.04)' } }}>
                 <TableHead>
                   <TableRow>
-                    <TableCell>Title</TableCell>
-                    <TableCell>Contact</TableCell>
-                    <TableCell>Value</TableCell>
-                    <TableCell>Stage</TableCell>
-                    <TableCell>Created</TableCell>
+                    <TableCell>First Name</TableCell>
+                    <TableCell>Last Name</TableCell>
+                    <TableCell>Phone</TableCell>
+                    <TableCell>Email</TableCell>
+                    <TableCell>Converted</TableCell>
                     <TableCell>Source</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell align="right">Actions</TableCell>
@@ -74,11 +74,11 @@ function Deals() {
                     const status = getStatusMeta(row.status);
                     return (
                       <TableRow key={row.id} hover onClick={(e)=>{ const t=e.target; if(t && t.closest && t.closest('a,button,[role="button"],svg')) return; navigate(`/crm/deals/${row.id}`); }} sx={{ cursor:'pointer' }}>
-                        <TableCell>{row.title || '-'}</TableCell>
-                        <TableCell>{row.contactName || '-'}</TableCell>
-                        <TableCell>{row.value ? `$${row.value}` : '-'}</TableCell>
-                        <TableCell>{row.stage || '-'}</TableCell>
-                        <TableCell>{formatDate(row.createdAt)}</TableCell>
+                        <TableCell>{row.buyerInfo?.firstName || row.firstName || '-'}</TableCell>
+                        <TableCell>{row.buyerInfo?.lastName || row.lastName || '-'}</TableCell>
+                        <TableCell>{row.buyerInfo?.phone || row.phone || '-'}</TableCell>
+                        <TableCell>{row.buyerInfo?.email || row.email || '-'}</TableCell>
+                        <TableCell>{formatDate(row.convertedAt)}</TableCell>
                         <TableCell><Chip size="small" label={source.label} color={source.color} variant="outlined" /></TableCell>
                         <TableCell><Chip size="small" label={status.label} color={status.color} /></TableCell>
                         <TableCell align="right">
@@ -103,7 +103,7 @@ function Deals() {
           </CardContent>
         </Card>
       </Box>
-    </CRMLayout>
+    </UnifiedLayout>
   );
 }
 

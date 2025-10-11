@@ -36,10 +36,11 @@ import LeadAppointmentDrawer from './LeadAppointmentDrawer';
 import AddLeadDrawer from './AddLeadDrawer';
 import LeadFilterDrawer from './LeadFilterDrawer';
 import SaveListDialog from './SaveListDialog';
-import CRMLayout from '../CRMLayout';
+import LeadsImportExport from './LeadsImportExport';
+import UnifiedLayout from '../UnifiedLayout';
 import { collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { useUser } from '../../UserContext';
+import { useUser } from '../../hooks/useUser';
 import { getSourceMeta, getStatusMeta, LEAD_SOURCES, LEAD_STATUSES } from './LeadConstants';
 
 function Leads() {
@@ -58,10 +59,32 @@ function Leads() {
   const [savedViews, setSavedViews] = useState([]);
   const [confirmConvert, setConfirmConvert] = useState({ open: false, lead: null });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [importExportOpen, setImportExportOpen] = useState(false);
+  const [users, setUsers] = useState([]);
 
   const companyId = userProfile?.companyId || 'demo-company';
   const locationId = userProfile?.locationId || 'demo-location';
   const currentUserEmail = userProfile?.email || userProfile?.firebaseUser?.email;
+
+  // Load users for name mapping
+  useEffect(() => {
+    if (!companyId) return;
+
+    // Load from top-level users collection for easier access
+    const usersRef = collection(db, 'users');
+    const unsub = onSnapshot(usersRef, (snapshot) => {
+      const usersData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        email: doc.data().email,
+        displayName: doc.data().displayName || doc.data().name || doc.data().email,
+        firstName: doc.data().firstName || '',
+        lastName: doc.data().lastName || ''
+      }));
+      setUsers(usersData);
+    });
+
+    return () => unsub();
+  }, [companyId]);
 
   useEffect(() => {
     const col = collection(db, 'companies', companyId, 'leads');
@@ -268,6 +291,20 @@ function Leads() {
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
+  // Helper function to get user display name from email
+  const getUserDisplayName = (email) => {
+    if (!email) return '-';
+    const user = users.find(u => u.email === email);
+    if (user) {
+      // Prefer firstName + lastName, fallback to displayName, then email
+      if (user.firstName && user.lastName) {
+        return `${user.firstName} ${user.lastName}`;
+      }
+      return user.displayName || email;
+    }
+    return email;
+  };
+
   // Load saved defaults once
   useEffect(() => {
     // Load saved views from Firestore for current user ordered by 'order' then 'createdAt'
@@ -284,11 +321,18 @@ function Leads() {
   }, [userProfile]);
 
   return (
-    <CRMLayout>
+    <UnifiedLayout mode="crm">
       <Box sx={{ p: 3 }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
           <Typography variant="h5" sx={{ fontWeight: 600 }}>Leads</Typography>
           <Stack direction="row" spacing={1} alignItems="center">
+            <Button 
+              variant="outlined" 
+              onClick={() => setImportExportOpen(true)}
+              sx={{ borderColor: 'primary.main', color: 'primary.main' }}
+            >
+              Import/Export
+            </Button>
             <Button variant="outlined" startIcon={<FilterListIcon />} onClick={() => setFilterOpen(true)}>Filter</Button>
             { (filter.sources.length || filter.statuses.length || filter.dateRange !== 'all' || (filter.dateRange==='custom' && (filter.customStart || filter.customEnd))) && (
               <Button variant="contained" onClick={() => setSaveDialogOpen(true)}>Save List</Button>
@@ -296,7 +340,7 @@ function Leads() {
           </Stack>
         </Stack>
 
-        <Card sx={{ backgroundColor: '#2a2746', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 6px 18px rgba(0,0,0,0.35)' }}>
+        <Card sx={{ backgroundColor: 'customColors.cardBackground', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 6px 18px rgba(0,0,0,0.35)' }}>
           <CardContent>
             <Tabs
               value={activeTab}
@@ -316,13 +360,23 @@ function Leads() {
             </Tabs>
             <Divider sx={{ mb: 2 }} />
             {activeTab !== 'saved' ? (
-              <LeadTable rows={filteredRows} formatDate={formatDate} enableActions showCreator={activeTab==='team'} sort={sort} onSortChange={setSort} onEdit={(lead) => setOpenDialog(lead)} onAction={(type, lead) => {
-                if (type === 'convert') {
-                  setConfirmConvert({ open: true, lead });
-                } else {
-                  setDrawerState({ type, lead });
-                }
-              }} />
+              <LeadTable 
+                rows={filteredRows} 
+                formatDate={formatDate} 
+                getUserDisplayName={getUserDisplayName}
+                enableActions 
+                showCreator={activeTab==='team'} 
+                sort={sort} 
+                onSortChange={setSort} 
+                onEdit={(lead) => setOpenDialog(lead)} 
+                onAction={(type, lead) => {
+                  if (type === 'convert') {
+                    setConfirmConvert({ open: true, lead });
+                  } else {
+                    setDrawerState({ type, lead });
+                  }
+                }} 
+              />
             ) : (
               <SavedViewsList
                 views={savedViews}
@@ -418,6 +472,17 @@ function Leads() {
           }}
         />
 
+        <LeadsImportExport
+          open={importExportOpen}
+          onClose={() => setImportExportOpen(false)}
+          companyId={companyId}
+          locationId={locationId}
+          leads={leads}
+          onImportComplete={() => {
+            setSnackbar({ open: true, message: 'Leads imported successfully!', severity: 'success' });
+          }}
+        />
+
         <Dialog open={confirmConvert.open} onClose={() => setConfirmConvert({ open: false, lead: null })}>
           <DialogTitle>Are you sure?</DialogTitle>
           <DialogContent>
@@ -478,11 +543,11 @@ function Leads() {
           </Alert>
         </Snackbar>
       </Box>
-    </CRMLayout>
+    </UnifiedLayout>
   );
 }
 
-function LeadTable({ rows, formatDate, enableActions, onEdit, onAction, showCreator, sort, onSortChange }) {
+function LeadTable({ rows, formatDate, getUserDisplayName, enableActions, onEdit, onAction, showCreator, sort, onSortChange }) {
   return (
     <TableContainer>
       <Table
@@ -553,7 +618,7 @@ function LeadTable({ rows, formatDate, enableActions, onEdit, onAction, showCrea
                   )}
                 </TableCell>
                 {showCreator && (
-                  <TableCell>{row.createdBy || '-'}</TableCell>
+                  <TableCell>{getUserDisplayName(row.createdBy)}</TableCell>
                 )}
                 <TableCell>
                   <Chip size="small" label={source.label} color={source.color} variant="outlined" />

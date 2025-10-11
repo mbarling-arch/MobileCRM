@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Drawer, Box, Typography, Stack, TextField, Button, MenuItem, Divider, List, ListItem, ListItemText, Checkbox, FormControlLabel } from '@mui/material';
+import { Typography, Divider, List, ListItem, ListItemText, Checkbox, FormControlLabel } from '@mui/material';
+import BaseDrawer, { DrawerActions } from '../BaseDrawer';
+import { FormTextField, FormSelect } from '../FormField';
 import { collection, addDoc, serverTimestamp, onSnapshot, orderBy, query, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { useUser } from '../../UserContext';
+import { useUser } from '../../hooks/useUser';
 
 const PRIORITIES = [
   { value: 'low', label: 'Low' },
@@ -54,86 +56,123 @@ function LeadTaskDrawer({ open, onClose, companyId, lead }) {
   };
 
   return (
-    <Drawer anchor="right" open={open} onClose={onClose} sx={{ zIndex: (t) => t.zIndex.modal + 20 }} PaperProps={{ sx: { width: 420, p: 2, backgroundColor: '#2a2746' } }}>
-      <Typography variant="h6" sx={{ mb: 2 }}>New Task</Typography>
-      <Stack spacing={2}>
-        <TextField label="Title" value={form.title} onChange={handleChange('title')} fullWidth />
-        <TextField type="date" label="Due Date" value={form.dueDate} onChange={handleChange('dueDate')} fullWidth InputLabelProps={{ shrink: true }} />
-        <TextField select label="Priority" value={form.priority} onChange={handleChange('priority')} fullWidth>
-          {PRIORITIES.map(p => (<MenuItem key={p.value} value={p.value}>{p.label}</MenuItem>))}
-        </TextField>
-        <TextField label="Description" value={form.description} onChange={handleChange('description')} fullWidth multiline minRows={3} />
-        <Stack direction="row" justifyContent="flex-end" spacing={2}>
-          <Button variant="outlined" onClick={onClose}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave} disabled={!isValid}>Create Task</Button>
-        </Stack>
-        <Divider />
-        <Typography variant="subtitle2">Tasks</Typography>
-        <List dense>
-          {tasks.map(t => {
-            const isCompleted = t.status === 'completed';
-            const isOverdue = !isCompleted && t.dueDate && new Date(t.dueDate.toDate ? t.dueDate.toDate() : t.dueDate) < new Date();
+    <BaseDrawer
+      open={open}
+      onClose={onClose}
+      title="New Task"
+      width={500}
+      actions={
+        <DrawerActions
+          onCancel={onClose}
+          onSubmit={handleSave}
+          submitDisabled={!isValid}
+          submitLabel="Create Task"
+        />
+      }
+    >
+      <FormTextField
+        label="Title"
+        value={form.title}
+        onChange={handleChange('title')}
+        required
+      />
 
-            return (
-              <ListItem key={t.id} sx={{
-                px: 0,
-                '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' }
-              }}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={isCompleted}
-                      onChange={(e) => handleTaskStatusChange(t.id, e.target.checked)}
-                      sx={{
-                        color: 'rgba(255,255,255,0.5)',
-                        '&.Mui-checked': {
-                          color: '#4caf50',
-                        },
-                      }}
-                    />
-                  }
-                  label=""
-                  sx={{ mr: 1 }}
-                />
-                <ListItemText
-                  primary={
-                    <Typography
-                      sx={{
-                        textDecoration: isCompleted ? 'line-through' : 'none',
-                        color: isCompleted ? 'rgba(255,255,255,0.5)' : 'white',
-                        fontWeight: isOverdue && !isCompleted ? 600 : 400,
-                      }}
-                    >
-                      {`${t.title} • ${t.priority?.toUpperCase?.() || ''}`}
-                      {isOverdue && !isCompleted && (
-                        <Typography component="span" sx={{ color: '#f44336', ml: 1, fontSize: '0.8rem' }}>
-                          (OVERDUE)
-                        </Typography>
-                      )}
-                    </Typography>
-                  }
-                  secondary={
-                    <Typography
-                      sx={{
-                        textDecoration: isCompleted ? 'line-through' : 'none',
-                        color: isCompleted ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.6)',
-                        fontSize: '0.8rem'
-                      }}
-                    >
-                      {t.description ? t.description + ' • ' : ''}
-                      {t.createdBy || ''} • Due: {t.dueDate?.toDate ? t.dueDate.toDate().toLocaleDateString() : t.dueDate || 'No due date'}
-                    </Typography>
-                  }
-                />
-              </ListItem>
-            );
-          })}
-          {tasks.length === 0 && (
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>No tasks yet.</Typography>
-          )}
-        </List>
-      </Stack>
-    </Drawer>
+      <FormTextField
+        label="Due Date"
+        type="date"
+        value={form.dueDate}
+        onChange={handleChange('dueDate')}
+        required
+        InputLabelProps={{ shrink: true }}
+      />
+
+      <FormSelect
+        label="Priority"
+        value={form.priority}
+        onChange={handleChange('priority')}
+        options={PRIORITIES}
+      />
+
+      <FormTextField
+        label="Description"
+        value={form.description}
+        onChange={handleChange('description')}
+        multiline
+        minRows={3}
+      />
+
+      <Divider sx={{ my: 2 }} />
+
+      <Typography variant="subtitle2" sx={{ mb: 1 }}>
+        Tasks
+      </Typography>
+
+      <List dense sx={{ maxHeight: 300, overflow: 'auto' }}>
+        {tasks.map(t => {
+          const isCompleted = t.status === 'completed';
+          const isOverdue = !isCompleted && t.dueDate && new Date(t.dueDate.toDate ? t.dueDate.toDate() : t.dueDate) < new Date();
+
+          return (
+            <ListItem key={t.id} sx={{
+              px: 0,
+              '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' }
+            }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={isCompleted}
+                    onChange={(e) => handleTaskStatusChange(t.id, e.target.checked)}
+                    sx={{
+                      color: 'rgba(255,255,255,0.5)',
+                      '&.Mui-checked': {
+                        color: '#4caf50',
+                      },
+                    }}
+                  />
+                }
+                label=""
+                sx={{ mr: 1 }}
+              />
+              <ListItemText
+                primary={
+                  <Typography
+                    sx={{
+                      textDecoration: isCompleted ? 'line-through' : 'none',
+                      color: isCompleted ? 'rgba(255,255,255,0.5)' : 'white',
+                      fontWeight: isOverdue && !isCompleted ? 600 : 400,
+                    }}
+                  >
+                    {`${t.title} • ${t.priority?.toUpperCase?.() || ''}`}
+                    {isOverdue && !isCompleted && (
+                      <Typography component="span" sx={{ color: '#f44336', ml: 1, fontSize: '0.8rem' }}>
+                        (OVERDUE)
+                      </Typography>
+                    )}
+                  </Typography>
+                }
+                secondary={
+                  <Typography
+                    sx={{
+                      textDecoration: isCompleted ? 'line-through' : 'none',
+                      color: isCompleted ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.6)',
+                      fontSize: '0.8rem'
+                    }}
+                  >
+                    {t.description ? t.description + ' • ' : ''}
+                    {t.createdBy || ''} • Due: {t.dueDate?.toDate ? t.dueDate.toDate().toLocaleDateString() : t.dueDate || 'No due date'}
+                  </Typography>
+                }
+              />
+            </ListItem>
+          );
+        })}
+        {tasks.length === 0 && (
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            No tasks yet.
+          </Typography>
+        )}
+      </List>
+    </BaseDrawer>
   );
 }
 

@@ -29,10 +29,10 @@ import LeadTaskDrawer from './LeadTaskDrawer';
 import LeadAppointmentDrawer from './LeadAppointmentDrawer';
 import LeadFilterDrawer from './LeadFilterDrawer';
 import SaveListDialog from './SaveListDialog';
-import CRMLayout from '../CRMLayout';
+import UnifiedLayout from '../UnifiedLayout';
 import { collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { useUser } from '../../UserContext';
+import { useUser } from '../../hooks/useUser';
 import { getSourceMeta, getStatusMeta } from './LeadConstants';
 
 function Prospects() {
@@ -47,10 +47,30 @@ function Prospects() {
   const [filter, setFilter] = useState({ query: '', sources: [], statuses: [], dateRange: 'all', customStart: '', customEnd: '' });
   const [sort, setSort] = useState({ column: 'createdAt', direction: 'desc' });
   const [savedViews, setSavedViews] = useState([]);
+  const [users, setUsers] = useState([]);
 
   const companyId = userProfile?.companyId || 'demo-company';
   const locationId = userProfile?.locationId || 'demo-location';
   const currentUserEmail = userProfile?.email || userProfile?.firebaseUser?.email;
+
+  // Load users for name mapping
+  useEffect(() => {
+    if (!companyId) return;
+
+    const usersRef = collection(db, 'users');
+    const unsub = onSnapshot(usersRef, (snapshot) => {
+      const usersData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        email: doc.data().email,
+        displayName: doc.data().displayName || doc.data().name || doc.data().email,
+        firstName: doc.data().firstName || '',
+        lastName: doc.data().lastName || ''
+      }));
+      setUsers(usersData);
+    });
+
+    return () => unsub();
+  }, [companyId]);
 
   useEffect(() => {
     const col = collection(db, 'companies', companyId, 'prospects');
@@ -139,8 +159,21 @@ function Prospects() {
     return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
+  // Helper function to get user display name from email
+  const getUserDisplayName = (email) => {
+    if (!email) return '-';
+    const user = users.find(u => u.email === email);
+    if (user) {
+      if (user.firstName && user.lastName) {
+        return `${user.firstName} ${user.lastName}`;
+      }
+      return user.displayName || email;
+    }
+    return email;
+  };
+
   return (
-    <CRMLayout>
+    <UnifiedLayout mode="crm">
       <Box sx={{ p: 3 }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
           <Typography variant="h5" sx={{ fontWeight: 600 }}>Prospects</Typography>
@@ -152,7 +185,7 @@ function Prospects() {
           </Stack>
         </Stack>
 
-        <Card sx={{ backgroundColor: '#2a2746', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 6px 18px rgba(0,0,0,0.35)' }}>
+        <Card sx={{ backgroundColor: 'customColors.cardBackground', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 6px 18px rgba(0,0,0,0.35)' }}>
           <CardContent>
             <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)} textColor="primary" indicatorColor="primary" sx={{ mb: 1, '& .MuiTab-root': { fontWeight: 600 }, '& .MuiTabs-indicator': { height: 3 } }}>
               <Tab label="MY PROSPECTS" value="my" />
@@ -164,6 +197,7 @@ function Prospects() {
               <ProspectTable
                 rows={filteredRows}
                 formatDate={formatDate}
+                getUserDisplayName={getUserDisplayName}
                 enableActions
                 showCreator={activeTab==='team'}
                 sort={sort}
@@ -204,11 +238,11 @@ function Prospects() {
           setSaveDialogOpen(false);
         }} />
       </Box>
-    </CRMLayout>
+    </UnifiedLayout>
   );
 }
 
-function ProspectTable({ rows, formatDate, enableActions, onAction, showCreator, sort, onSortChange, onRowNavigate }) {
+function ProspectTable({ rows, formatDate, getUserDisplayName, enableActions, onAction, showCreator, sort, onSortChange, onRowNavigate }) {
   return (
     <TableContainer>
       <Table
@@ -252,7 +286,7 @@ function ProspectTable({ rows, formatDate, enableActions, onAction, showCreator,
                 <TableCell>{row.phone ? (<MuiLink href={`tel:${row.phone}`} underline="hover" color="primary">{row.phone}</MuiLink>) : '-'}</TableCell>
                 <TableCell>{row.email || '-'}</TableCell>
                 <TableCell>{formatDate(row.createdAt)}</TableCell>
-                {showCreator && (<TableCell>{row.createdBy || '-'}</TableCell>)}
+                {showCreator && (<TableCell>{getUserDisplayName(row.createdBy)}</TableCell>)}
                 <TableCell><Chip size="small" label={source.label} color={source.color} variant="outlined" /></TableCell>
                 <TableCell><Chip size="small" label={status.label} color={status.color} /></TableCell>
                 {enableActions && (

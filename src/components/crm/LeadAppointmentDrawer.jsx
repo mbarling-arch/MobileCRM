@@ -1,14 +1,36 @@
 import React, { useEffect, useState } from 'react';
-import { Drawer, Typography, Stack, TextField, Button, Divider, List, ListItem, ListItemText } from '@mui/material';
+import { Typography, Divider, List, ListItem, ListItemText } from '@mui/material';
+import BaseDrawer, { DrawerActions } from '../BaseDrawer';
+import { FormTextField } from '../FormField';
 import { collection, addDoc, serverTimestamp, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { useUser } from '../../UserContext';
+import { useUser } from '../../hooks/useUser';
 
 function LeadAppointmentDrawer({ open, onClose, companyId, lead }) {
   const { userProfile } = useUser();
   const [form, setForm] = useState({ title: '', date: '', time: '', description: '' });
   const isValid = form.title.trim() && form.date && form.time;
   const [appts, setAppts] = useState([]);
+  const [users, setUsers] = useState([]);
+
+  // Load users for name mapping
+  useEffect(() => {
+    if (!companyId) return;
+
+    const usersRef = collection(db, 'users');
+    const unsub = onSnapshot(usersRef, (snapshot) => {
+      const usersData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        email: doc.data().email,
+        displayName: doc.data().displayName || doc.data().name || doc.data().email,
+        firstName: doc.data().firstName || '',
+        lastName: doc.data().lastName || ''
+      }));
+      setUsers(usersData);
+    });
+
+    return () => unsub();
+  }, [companyId]);
 
   useEffect(() => {
     if (!lead?.id) return;
@@ -18,6 +40,19 @@ function LeadAppointmentDrawer({ open, onClose, companyId, lead }) {
   }, [companyId, lead?.id]);
 
   const handleChange = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  // Helper function to get user display name from email
+  const getUserDisplayName = (email) => {
+    if (!email) return '';
+    const user = users.find(u => u.email === email);
+    if (user) {
+      if (user.firstName && user.lastName) {
+        return `${user.firstName} ${user.lastName}`;
+      }
+      return user.displayName || email;
+    }
+    return email;
+  };
 
   const handleSave = async () => {
     if (!isValid) return;
@@ -33,34 +68,75 @@ function LeadAppointmentDrawer({ open, onClose, companyId, lead }) {
   };
 
   return (
-    <Drawer anchor="right" open={open} onClose={onClose} sx={{ zIndex: (t) => t.zIndex.modal + 20 }} PaperProps={{ sx: { width: 420, p: 2, backgroundColor: '#2a2746' } }}>
-      <Typography variant="h6" sx={{ mb: 2 }}>Schedule Appointment</Typography>
-      <Stack spacing={2}>
-        <TextField label="Title" value={form.title} onChange={handleChange('title')} fullWidth />
-        <TextField type="date" label="Date" value={form.date} onChange={handleChange('date')} fullWidth InputLabelProps={{ shrink: true }} />
-        <TextField type="time" label="Time" value={form.time} onChange={handleChange('time')} fullWidth InputLabelProps={{ shrink: true }} />
-        <TextField label="Description" value={form.description} onChange={handleChange('description')} fullWidth multiline minRows={3} />
-        <Stack direction="row" justifyContent="flex-end" spacing={2}>
-          <Button variant="outlined" onClick={onClose}>Cancel</Button>
-          <Button variant="contained" onClick={handleSave} disabled={!isValid}>Schedule</Button>
-        </Stack>
-        <Divider />
-        <Typography variant="subtitle2">Appointments</Typography>
-        <List dense>
-          {appts.map(a => (
-            <ListItem key={a.id} sx={{ px: 0 }}>
-              <ListItemText
-                primary={a.title}
-                secondary={`${a.description ? a.description + ' • ' : ''}${a.createdBy || ''} • ${a.createdAt?.toDate ? a.createdAt.toDate().toLocaleString() : ''}`}
-              />
-            </ListItem>
-          ))}
-          {appts.length === 0 && (
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>No appointments yet.</Typography>
-          )}
-        </List>
-      </Stack>
-    </Drawer>
+    <BaseDrawer
+      open={open}
+      onClose={onClose}
+      title="Schedule Appointment"
+      width={500} // Slightly wider for the appointment list
+      actions={
+        <DrawerActions
+          onCancel={onClose}
+          onSubmit={handleSave}
+          submitDisabled={!isValid}
+          submitLabel="Schedule"
+        />
+      }
+    >
+      <FormTextField
+        label="Title"
+        value={form.title}
+        onChange={handleChange('title')}
+        required
+      />
+
+      <FormTextField
+        label="Date"
+        type="date"
+        value={form.date}
+        onChange={handleChange('date')}
+        required
+        InputLabelProps={{ shrink: true }}
+      />
+
+      <FormTextField
+        label="Time"
+        type="time"
+        value={form.time}
+        onChange={handleChange('time')}
+        required
+        InputLabelProps={{ shrink: true }}
+      />
+
+      <FormTextField
+        label="Description"
+        value={form.description}
+        onChange={handleChange('description')}
+        multiline
+        minRows={3}
+      />
+
+      <Divider sx={{ my: 2 }} />
+
+      <Typography variant="subtitle2" sx={{ mb: 1 }}>
+        Appointments
+      </Typography>
+
+      <List dense sx={{ maxHeight: 300, overflow: 'auto' }}>
+        {appts.map(a => (
+          <ListItem key={a.id} sx={{ px: 0 }}>
+            <ListItemText
+              primary={a.title}
+              secondary={`${a.description ? a.description + ' • ' : ''}${getUserDisplayName(a.createdBy)} • ${a.createdAt?.toDate ? a.createdAt.toDate().toLocaleString() : ''}`}
+            />
+          </ListItem>
+        ))}
+        {appts.length === 0 && (
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            No appointments yet.
+          </Typography>
+        )}
+      </List>
+    </BaseDrawer>
   );
 }
 

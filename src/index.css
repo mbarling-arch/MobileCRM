@@ -2,11 +2,220 @@
 
 @layer base {
   html {
-    font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+    /* Inter font for professional typography */
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    /* Smooth font rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   body {
     margin: 0;
     min-height: 100vh;
+  }
+}
+
+/* Global Theme Overrides - Remove Borders, Add Floating Shadows */
+@layer components {
+  /* Remove all default borders from MUI Paper components */
+  .MuiPaper-root {
+    border: none !important;
+  }
+
+  /* Ensure Cards have no borders, only shadows */
+  .MuiCard-root {
+    border: none !important;
+  }
+
+  /* Remove borders from outlined variants when they have fill */
+  .MuiButton-outlined[style*="background"] {
+    border: none !important;
+  }
+
+  /* Clean table cells - no heavy borders */
+  .MuiTableCell-root {
+    border-color: rgba(46, 38, 61, 0.08) !important;
+  }
+
+  [data-mui-color-scheme="dark"] .MuiTableCell-root {
+    border-color: rgba(231, 227, 252, 0.08) !important;
+  }
+
+  /* Dialog clean borders */
+  .MuiDialog-paper {
+    border: none !important;
+  }
+
+  /* Drawer clean borders */
+  .MuiDrawer-paper {
+    border: none !important;
+  }
+
+  /* Menu clean borders */
+  .MuiMenu-paper {
+    border: none !important;
+  }
+
+  /* Popover clean borders */
+  .MuiPopover-paper {
+    border: none !important;
+  }
+
+  /* Remove divider borders, use subtle lines */
+  .MuiDivider-root {
+    border-color: rgba(46, 38, 61, 0.08) !important;
+  }
+
+  [data-mui-color-scheme="dark"] .MuiDivider-root {
+    border-color: rgba(231, 227, 252, 0.08) !important;
+  }
+
+  /* FullCalendar Purple Theme */
+  .fc {
+    --fc-border-color: rgba(231, 227, 252, 0.12);
+    --fc-button-bg-color: #8C57FF;
+    --fc-button-border-color: #8C57FF;
+    --fc-button-hover-bg-color: #7E4EE6;
+    --fc-button-hover-border-color: #7E4EE6;
+    --fc-button-active-bg-color: #7E4EE6;
+    --fc-button-active-border-color: #7E4EE6;
+    --fc-today-bg-color: rgba(140, 87, 255, 0.08);
+    --fc-page-bg-color: transparent;
+    --fc-neutral-bg-color: transparent;
+  }
+
+  .fc .fc-toolbar {
+    background-color: transparent !important;
+  }
+
+  .fc .fc-toolbar-title {
+    color: var(--mui-palette-text-primary) !important;
+    font-size: 1.5rem !important;
+    font-weight: 600 !important;
+  }
+
+  .fc .fc-button {
+    text-transform: none !important;
+    font-weight: 500 !important;
+    border-radius: 6px !important;
+    padding: 6px 16px !important;
+    background-color: #8C57FF !important;
+    border-color: #8C57FF !important;
+    color: white !important;
+  }
+
+  .fc .fc-button:hover {
+    background-color: #7E4EE6 !important;
+    border-color: #7E4EE6 !important;
+  }
+
+  .fc .fc-button-active,
+  .fc .fc-button:active {
+    background-color: #7E4EE6 !important;
+    border-color: #7E4EE6 !important;
+  }
+
+  .fc .fc-button:focus {
+    box-shadow: none !important;
+  }
+
+  .fc .fc-button:disabled {
+    opacity: 0.5 !important;
+  }
+
+  .fc .fc-col-header-cell {
+    background-color: transparent !important;
+    color: var(--mui-palette-text-primary) !important;
+    font-weight: 600 !important;
+    border-color: var(--mui-palette-divider) !important;
+    text-transform: uppercase !important;
+    font-size: 0.75rem !important;
+    letter-spacing: 0.5px !important;
+    padding: 12px 0 !important;
+  }
+
+  .fc .fc-daygrid-day-number {
+    color: var(--mui-palette-text-primary) !important;
+    font-weight: 500 !important;
+    padding: 8px !important;
+  }
+
+  .fc .fc-daygrid-day-frame {
+    min-height: 120px !important;
+  }
+
+  .fc .fc-daygrid-day {
+    background-color: transparent !important;
+  }
+
+  .fc .fc-daygrid-day.fc-day-today {
+    background-color: rgba(140, 87, 255, 0.08) !important;
+  }
+
+  .fc .fc-daygrid-day:hover {
+    background-color: var(--mui-palette-action-hover) !important;
+    cursor: pointer;
+  }
+
+  .fc .fc-event {
+    border: none !important;
+    border-radius: 4px !important;
+    font-weight: 600 !important;
+  }
+
+  .fc-theme-standard td,
+  .fc-theme-standard th {
+    border-color: var(--mui-palette-divider) !important;
+  }
+
+  .fc-daygrid-day-top {
+    flex-direction: row !important;
+  }
+
+  /* React DatePicker Styling */
+  .react-datepicker {
+    border: none !important;
+    box-shadow: none !important;
+    font-family: inherit;
+    background-color: transparent !important;
+  }
+
+  .react-datepicker__header {
+    background-color: transparent !important;
+    border-bottom: 1px solid var(--mui-palette-divider);
+  }
+
+  .react-datepicker__current-month,
+  .react-datepicker__day-name {
+    color: var(--mui-palette-text-primary) !important;
+    font-weight: 600;
+  }
+
+  .react-datepicker__day {
+    color: var(--mui-palette-text-primary) !important;
+  }
+
+  .react-datepicker__day:hover {
+    background-color: var(--mui-palette-action-hover) !important;
+  }
+
+  .react-datepicker__day--selected,
+  .react-datepicker__day--keyboard-selected {
+    background-color: #8C57FF !important;
+    color: white !important;
+  }
+
+  .react-datepicker__day--today {
+    font-weight: 700;
+    color: #8C57FF !important;
+    background-color: rgba(140, 87, 255, 0.12) !important;
+  }
+
+  .react-datepicker__navigation-icon::before {
+    border-color: var(--mui-palette-text-primary) !important;
+  }
+
+  .react-datepicker__month {
+    background-color: transparent !important;
   }
 }

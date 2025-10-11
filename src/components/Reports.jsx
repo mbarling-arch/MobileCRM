@@ -27,8 +27,8 @@ import {
   AttachMoney as MoneyIcon,
   Download as DownloadIcon,
 } from '@mui/icons-material';
-import { useAuth } from '../AuthContext';
-import Layout from './Layout';
+import { useAuth } from '../hooks/useAuth';
+import UnifiedLayout from './UnifiedLayout';
 import { db } from '../firebase';
 import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
 
@@ -104,7 +104,7 @@ function Reports() {
   };
 
   return (
-    <Layout>
+    <UnifiedLayout mode="admin">
       <Box sx={{ p: 3 }}>
 
         <Container maxWidth="xl" sx={{ mt: 1, mb: 4 }}>
@@ -310,7 +310,7 @@ function Reports() {
           </Card>
         </Container>
       </Box>
-    </Layout>
+    </UnifiedLayout>
   );
 }
 

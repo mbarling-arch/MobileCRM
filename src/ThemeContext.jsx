@@ -1,149 +1,88 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 
+// Import new theme system
+import coreTheme from './@core/theme/index.js';
+import themeConfig from './configs/themeConfig.js';
+
 const ThemeContext = createContext();
 
-// Light theme
-const lightTheme = createTheme({
-  palette: {
-    mode: 'light',
-    primary: {
-      main: '#1976d2',
-      light: '#42a5f5',
-      dark: '#1565c0',
-    },
-    secondary: {
-      main: '#dc004e',
-      light: '#ff5983',
-      dark: '#9a0036',
-    },
-    background: {
-      default: '#f5f5f5',
-      paper: '#ffffff',
-    },
-    text: {
-      primary: '#212121',
-      secondary: '#757575',
-    },
-  },
-  typography: {
-    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
-    h4: {
-      fontWeight: 600,
-    },
-    h6: {
-      fontWeight: 500,
-    },
-  },
-  shape: {
-    borderRadius: 8,
-  },
-  components: {
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-          borderRadius: 12,
-        },
-      },
-    },
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          borderRadius: 8,
-          textTransform: 'none',
-          fontWeight: 500,
-        },
-        contained: {
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          '&:hover': {
-            boxShadow: '0 4px 8px rgba(0,0,0,0.15)',
-          },
-        },
-      },
-    },
-  },
-});
+// Create theme builder function
+const buildTheme = (mode) => {
+  // Get base theme from core
+  const settings = {
+    skin: themeConfig.skin,
+    primaryColor: themeConfig.primaryColor
+  };
 
-// Dark theme
-const darkTheme = createTheme({
-  palette: {
-    mode: 'dark',
-    primary: {
-      main: '#90caf9',
-      light: '#e3f2fd',
-      dark: '#42a5f5',
+  const baseTheme = coreTheme(settings, mode);
+
+  // Merge with MUI theme creation
+  const theme = createTheme({
+    palette: {
+      mode,
+      ...baseTheme.colorSchemes[mode].palette
     },
-    secondary: {
-      main: '#f48fb1',
-      light: '#fce4ec',
-      dark: '#ad1457',
-    },
-    background: {
-      default: '#121212',
-      paper: '#1e1e1e',
-    },
-    text: {
-      primary: '#ffffff',
-      secondary: '#b0b0b0',
-    },
-  },
-  typography: {
-    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
-    h4: {
-      fontWeight: 600,
-    },
-    h6: {
-      fontWeight: 500,
-    },
-  },
-  shape: {
-    borderRadius: 8,
-  },
-  components: {
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-          borderRadius: 12,
-          backgroundColor: '#1e1e1e',
+    typography: baseTheme.typography,
+    shape: baseTheme.shape,
+    shadows: baseTheme.shadows,
+    customShadows: baseTheme.customShadows,
+    spacing: baseTheme.spacing,
+    components: {
+      // Merge base component overrides from theme
+      ...baseTheme.components,
+      // Add/override specific components for layout
+      MuiDrawer: {
+        styleOverrides: {
+          paper: {
+            backgroundColor: mode === 'dark' ? '#312D4B' : '#FFFFFF',
+            // Clean look - subtle shadow instead of border
+            boxShadow: mode === 'dark' 
+              ? '4px 0 12px rgba(0, 0, 0, 0.3)' 
+              : '4px 0 12px rgba(46, 38, 61, 0.08)',
+            border: 'none',
+            borderRadius: '0 12px 12px 0'
+          },
         },
       },
-    },
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          borderRadius: 8,
-          textTransform: 'none',
-          fontWeight: 500,
-        },
-        contained: {
-          boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
-          '&:hover': {
-            boxShadow: '0 4px 8px rgba(0,0,0,0.4)',
+      MuiAppBar: {
+        styleOverrides: {
+          root: {
+            backgroundColor: mode === 'dark' ? '#312D4B' : '#FFFFFF',
+            // Clean look - subtle shadow instead of border
+            boxShadow: mode === 'dark'
+              ? '0 2px 8px rgba(0, 0, 0, 0.3)'
+              : '0 2px 8px rgba(46, 38, 61, 0.08)',
+            border: 'none'
           },
         },
       },
     },
-    MuiDrawer: {
-      styleOverrides: {
-        paper: {
-          backgroundColor: '#1a1a1a',
-          borderRight: '1px solid #333',
-        },
-      },
-    },
-    MuiAppBar: {
-      styleOverrides: {
-        root: {
-          backgroundColor: '#1e1e1e',
-          borderBottom: '1px solid #333',
-        },
-      },
-    },
-  },
-});
+  });
+
+  // Add custom colors for backward compatibility
+  theme.customColors = {
+    layoutBackground: mode === 'dark' ? '#28243D' : '#F4F5FA',
+    sidebarBackground: mode === 'dark' ? '#312D4B' : '#FFFFFF',
+    sidebarBorder: mode === 'dark' ? 'rgba(231, 227, 252, 0.12)' : 'rgba(46, 38, 61, 0.2)',
+    drawerBackground: mode === 'dark' ? '#312D4B' : '#FFFFFF',
+    drawerBorder: mode === 'dark' ? 'rgba(231, 227, 252, 0.12)' : 'rgba(46, 38, 61, 0.2)',
+    tableBackground: mode === 'dark' ? '#312D4B' : '#FFFFFF',
+    tableBorder: mode === 'dark' ? 'rgba(231, 227, 252, 0.12)' : 'rgba(46, 38, 61, 0.2)',
+    tableRowBackground: mode === 'dark' ? '#3D3759' : '#F9FAFB',
+    tableHeaderBorder: mode === 'dark' ? 'rgba(231, 227, 252, 0.12)' : 'rgba(46, 38, 61, 0.2)',
+    calendarBackground: mode === 'dark' ? '#312D4B' : '#FFFFFF',
+    calendarHeaderBackground: mode === 'dark' ? '#3D3759' : '#FFFFFF',
+    calendarBorder: mode === 'dark' ? 'rgba(231, 227, 252, 0.12)' : 'rgba(46, 38, 61, 0.2)',
+    calendarTodayBackground: mode === 'dark' ? 'rgba(140, 87, 255, 0.12)' : 'rgba(140, 87, 255, 0.08)',
+    calendarEventBackground: '#8C57FF',
+    calendarOffMonthBackground: mode === 'dark' ? '#28243D' : '#F4F5FA',
+    cardBackground: mode === 'dark' ? '#312D4B' : '#FFFFFF',
+  };
+
+  return theme;
+};
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function useTheme() {
@@ -151,7 +90,7 @@ export function useTheme() {
 }
 
 export function ThemeProviderWrapper({ children }) {
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(true);
 
   // Load theme preference from localStorage on mount
   useEffect(() => {
@@ -159,8 +98,8 @@ export function ThemeProviderWrapper({ children }) {
     if (savedTheme) {
       setIsDarkMode(savedTheme === 'dark');
     } else {
-      // Default to light mode, user can toggle if they prefer dark
-      setIsDarkMode(false);
+      // Default to dark mode with purple theme
+      setIsDarkMode(true);
     }
   }, []);
 
@@ -171,7 +110,10 @@ export function ThemeProviderWrapper({ children }) {
     localStorage.setItem('theme', newTheme ? 'dark' : 'light');
   };
 
-  const theme = isDarkMode ? darkTheme : lightTheme;
+  // Build theme with useMemo for performance
+  const theme = useMemo(() => {
+    return buildTheme(isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
 
   const value = {
     isDarkMode,

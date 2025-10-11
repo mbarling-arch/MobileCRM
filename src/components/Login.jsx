@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -9,15 +9,16 @@ import {
   Alert,
   Container
 } from '@mui/material';
-import { useAuth } from '../AuthContext';
+import { useAppDispatch } from '../hooks/useRedux';
+import { login, signup } from '../redux-store/slices/authSlice';
 
 function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [error, setError] = useState('');
+  const dispatch = useAppDispatch();
   const [loading, setLoading] = useState(false);
-  const { login, signup } = useAuth();
   const navigate = useNavigate();
 
   async function handleSubmit(e) {
@@ -27,16 +28,17 @@ function Login() {
       setError('');
       setLoading(true);
       if (isSignUp) {
-        await signup(email, password);
+        await dispatch(signup({ email, password })).unwrap();
       } else {
-        await login(email, password);
+        await dispatch(login({ email, password })).unwrap();
       }
       // Navigate to home after successful login/signup (will redirect based on user type)
       navigate('/');
     } catch (error) {
       setError(error.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   return (

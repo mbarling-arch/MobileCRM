@@ -1,62 +1,112 @@
 import React, { useEffect, useState } from 'react';
-import { Drawer, Box, Stack, Typography, Grid, Button, TextField, MenuItem, IconButton } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
+import { Grid, Typography } from '@mui/material';
+import BaseDrawer, { DrawerActions } from '../BaseDrawer';
+import { FormTextField, FormSelect, FormGrid, FormGridItem, FormSection } from '../FormField';
+import { db } from '../../firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { useUser } from '../../hooks/useUser';
 
 function AddInventoryDrawer({ open, onClose, onCreate, onSubmit, initial, submitLabel }) {
+  const { userProfile } = useUser();
+  const [masterPricing, setMasterPricing] = useState({ single: {}, double: {} });
+
   const empty = {
-    facility: '',
-    name: '',
     model: '',
     size: '',
     bedBath: '',
     po: '',
-    invoice: 0,
-    deliverySetup: 0,
-    ac: 0,
-    tileDelivery: 0,
-    steps: 0,
-    trimOut: 0,
-    skirting: 0,
-    pad: 0,
-    esc: 0,
-    misc: 0,
-    srg: 25,
-    salesPrice: 0,
-    status: 'quote'
+    width: 'single', // single or double
+    status: 'stock',
+    // Home information fields
+    factory: '',
+    serialNumber: '',
+    year: '',
+    widthLength: '', // WxL format (e.g., "14x70")
+    squareFeet: '',
+    invoice: 0, // Base cost
+    markupPercent: 0, // Markup percentage
+    salesPrice: 0, // Final price (calculated)
   };
 
   const [form, setForm] = useState(empty);
   const [submitting, setSubmitting] = useState(false);
 
+  // Load master pricing
+  useEffect(() => {
+    if (!userProfile?.companyId || !open) return;
+
+    const loadMasterPricing = async () => {
+      try {
+        const docRef = doc(db, 'companies', userProfile.companyId, 'settings', 'masterPricing');
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+          setMasterPricing(docSnap.data());
+        }
+      } catch (error) {
+        console.error('Error loading master pricing:', error);
+      }
+    };
+
+    loadMasterPricing();
+  }, [userProfile, open]);
+
+  // Calculate sales price based on invoice, markup percentage, and master pricing
+  const calculateSalesPrice = () => {
+    const invoice = parseFloat(form.invoice) || 0;
+    const markupPercent = parseFloat(form.markupPercent) || 0;
+    const pricing = masterPricing[form.width] || {};
+
+    // Start with invoice
+    let total = invoice;
+
+    // Add master pricing options (these are fixed amounts, not percentages)
+    const masterOptions = [
+      'deliverySetup', 'ac', 'tileDelivery', 'steps',
+      'trimOut', 'skirting', 'pad', 'esc', 'misc'
+    ];
+
+    masterOptions.forEach(option => {
+      if (pricing[option]) {
+        total += parseFloat(pricing[option]);
+      }
+    });
+
+    // Apply markup to the total (invoice + master pricing options)
+    total = total * (1 + (markupPercent / 100));
+
+    return Math.round(total);
+  };
+
+  // Auto-calculate sales price when invoice or markup changes
+  useEffect(() => {
+    if (form.invoice || form.markupPercent) {
+      const calculatedPrice = calculateSalesPrice();
+      setForm(prev => ({ ...prev, salesPrice: calculatedPrice }));
+    }
+  }, [form.invoice, form.markupPercent, form.width, masterPricing]);
+
   useEffect(() => {
     if (initial) {
       setForm({
-        facility: initial.facility || '',
-        name: initial.name || '',
-        model: initial.model || '',
-        size: initial.size || '',
-        bedBath: initial.bedBath || '',
-        po: initial.po || '',
+        ...empty,
+        ...initial,
+        // Ensure all fields have proper defaults
+        width: initial.width || 'single',
+        status: initial.status || 'stock',
+        squareFeet: initial.squareFeet || '',
+        year: initial.year || '',
         invoice: initial.invoice || 0,
-        deliverySetup: initial.deliverySetup || 0,
-        ac: initial.ac || 0,
-        tileDelivery: initial.tileDelivery || 0,
-        steps: initial.steps || 0,
-        trimOut: initial.trimOut || 0,
-        skirting: initial.skirting || 0,
-        pad: initial.pad || 0,
-        esc: initial.esc || 0,
-        misc: initial.misc || 0,
-        srg: initial.srg || 25,
+        markupPercent: initial.markupPercent || 0,
         salesPrice: initial.salesPrice || 0,
-        status: initial.status || 'quote'
       });
     } else {
       setForm(empty);
     }
   }, [initial, open]);
 
-  const isValid = form.name.trim() && form.model.trim() && form.facility.trim();
+  const isValid = !!(form.model.trim() && form.factory.trim());
+  console.log('Form validation - model:', form.model, 'factory:', form.factory, 'isValid:', isValid);
 
   const handleChange = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
@@ -65,58 +115,38 @@ function AddInventoryDrawer({ open, onClose, onCreate, onSubmit, initial, submit
     setForm((f) => ({ ...f, [key]: value }));
   };
 
-  const calculateSalesPrice = () => {
-    const costs = [
-      form.invoice,
-      form.deliverySetup,
-      form.ac,
-      form.tileDelivery,
-      form.steps,
-      form.trimOut,
-      form.skirting,
-      form.pad,
-      form.esc,
-      form.misc
-    ].reduce((sum, cost) => sum + cost, 0);
-
-    const srgAmount = costs * (form.srg / 100);
-    return costs + srgAmount;
-  };
-
-  const handleCalculateSalesPrice = () => {
-    const calculatedPrice = calculateSalesPrice();
-    setForm((f) => ({ ...f, salesPrice: Math.round(calculatedPrice) }));
-  };
 
   const handleSubmit = async () => {
+    console.log('AddInventoryDrawer handleSubmit called');
+    console.log('isValid:', isValid, 'submitting:', submitting);
+    console.log('form data:', JSON.stringify(form, null, 2));
+
     if (!isValid || submitting) return;
     setSubmitting(true);
     try {
       const payload = {
-        facility: form.facility.trim(),
-        name: form.name.trim(),
         model: form.model.trim(),
         size: form.size.trim(),
         bedBath: form.bedBath.trim(),
         po: form.po.trim(),
-        invoice: form.invoice,
-        deliverySetup: form.deliverySetup,
-        ac: form.ac,
-        tileDelivery: form.tileDelivery,
-        steps: form.steps,
-        trimOut: form.trimOut,
-        skirting: form.skirting,
-        pad: form.pad,
-        esc: form.esc,
-        misc: form.misc,
-        srg: form.srg,
-        salesPrice: form.salesPrice,
-        status: form.status
+        width: form.width,
+        status: form.status,
+        // Home information fields
+        factory: form.factory.trim(),
+        serialNumber: form.serialNumber.trim(),
+        year: parseInt(form.year) || 0,
+        widthLength: form.widthLength.trim(),
+        squareFeet: parseInt(form.squareFeet) || 0,
+        invoice: parseFloat(form.invoice) || 0,
+        markupPercent: parseFloat(form.markupPercent) || 0,
+        salesPrice: parseFloat(form.salesPrice) || 0,
       };
 
-      if (onSubmit) {
+      if (initial && onSubmit) {
+        // Editing existing item
         await onSubmit(payload);
-      } else if (onCreate) {
+      } else if (!initial && onCreate) {
+        // Creating new item
         await onCreate(payload);
       }
       setForm(empty);
@@ -126,319 +156,146 @@ function AddInventoryDrawer({ open, onClose, onCreate, onSubmit, initial, submit
   };
 
   return (
-    <Drawer
-      anchor="right"
+    <BaseDrawer
       open={open}
       onClose={onClose}
-      sx={{ zIndex: (t) => t.zIndex.modal + 20 }}
-      PaperProps={{ sx: { width: 500, p: 2, backgroundColor: '#2a2746', borderLeft: '1px solid rgba(255,255,255,0.08)' } }}
+      title={initial ? 'Edit Inventory Item' : 'Add Inventory Item'}
+      width={600}
+      actions={
+        <DrawerActions
+          onCancel={onClose}
+          onSubmit={handleSubmit}
+          submitDisabled={!isValid || submitting}
+          submitLabel={submitLabel || (initial ? 'Save Changes' : 'Add Inventory')}
+        />
+      }
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Typography variant="h6" sx={{ color: 'white' }}>{initial ? 'Edit Inventory Item' : 'Add Inventory Item'}</Typography>
-        <IconButton onClick={onClose} sx={{ color: 'white' }}>
-          <CloseIcon />
-        </IconButton>
-      </Box>
-
-      <Stack spacing={2} sx={{ flexGrow: 1, overflowY: 'auto' }}>
-        <Typography variant="subtitle1" sx={{ color: 'white', fontWeight: 600 }}>Basic Information</Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Facility/Location"
-              value={form.facility}
-              onChange={handleChange('facility')}
-              sx={{
-                '& .MuiInputBase-root': { backgroundColor: 'rgba(255,255,255,0.05)' },
-                '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-                '& .MuiInputBase-input': { color: 'white' }
-              }}
+      <FormSection title="Home Information">
+        <FormGrid>
+          <FormGridItem xs={12} sm={6}>
+            <FormTextField
+              label="Factory"
+              value={form.factory}
+              onChange={handleChange('factory')}
+              required
             />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Model/SKU"
+          </FormGridItem>
+          <FormGridItem xs={12} sm={6}>
+            <FormTextField
+              label="Serial Number"
+              value={form.serialNumber}
+              onChange={handleChange('serialNumber')}
+            />
+          </FormGridItem>
+          <FormGridItem xs={12} sm={6}>
+            <FormTextField
+              label="Model"
               value={form.model}
               onChange={handleChange('model')}
-              sx={{
-                '& .MuiInputBase-root': { backgroundColor: 'rgba(255,255,255,0.05)' },
-                '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-                '& .MuiInputBase-input': { color: 'white' }
-              }}
+              required
             />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              label="Item Name"
-              value={form.name}
-              onChange={handleChange('name')}
-              sx={{
-                '& .MuiInputBase-root': { backgroundColor: 'rgba(255,255,255,0.05)' },
-                '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-                '& .MuiInputBase-input': { color: 'white' }
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Size (Width x Length)"
+          </FormGridItem>
+          <FormGridItem xs={12} sm={6}>
+            <FormTextField
+              label="Size"
               value={form.size}
               onChange={handleChange('size')}
-              placeholder="e.g., 28x60"
-              sx={{
-                '& .MuiInputBase-root': { backgroundColor: 'rgba(255,255,255,0.05)' },
-                '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-                '& .MuiInputBase-input': { color: 'white' }
-              }}
             />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Bed & Bath"
+          </FormGridItem>
+          <FormGridItem xs={12} sm={6}>
+            <FormTextField
+              label="Year"
+              type="number"
+              value={form.year}
+              onChange={handleNumberChange('year')}
+            />
+          </FormGridItem>
+          <FormGridItem xs={12} sm={6}>
+            <FormTextField
+              label="WxL (Width x Length)"
+              value={form.widthLength}
+              onChange={handleChange('widthLength')}
+              placeholder="e.g., 14x70"
+            />
+          </FormGridItem>
+          <FormGridItem xs={12} sm={6}>
+            <FormTextField
+              label="B/B (Bed/Bath)"
               value={form.bedBath}
               onChange={handleChange('bedBath')}
               placeholder="e.g., 3/2"
-              sx={{
-                '& .MuiInputBase-root': { backgroundColor: 'rgba(255,255,255,0.05)' },
-                '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-                '& .MuiInputBase-input': { color: 'white' }
-              }}
             />
-          </Grid>
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              label="Purchase Order (PO)"
-              value={form.po}
-              onChange={handleChange('po')}
-              sx={{
-                '& .MuiInputBase-root': { backgroundColor: 'rgba(255,255,255,0.05)' },
-                '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-                '& .MuiInputBase-input': { color: 'white' }
-              }}
+          </FormGridItem>
+          <FormGridItem xs={12} sm={6}>
+            <FormTextField
+              label="Square Feet"
+              type="number"
+              value={form.squareFeet}
+              onChange={handleNumberChange('squareFeet')}
             />
-          </Grid>
-        </Grid>
-
-        <Typography variant="subtitle1" sx={{ color: 'white', fontWeight: 600, mt: 2 }}>Cost Breakdown</Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Invoice Cost"
+          </FormGridItem>
+          <FormGridItem xs={12} sm={6}>
+            <FormTextField
+              label="Invoice (Cost)"
               type="number"
               value={form.invoice}
               onChange={handleNumberChange('invoice')}
               InputProps={{ startAdornment: '$' }}
-              sx={{
-                '& .MuiInputBase-root': { backgroundColor: 'rgba(255,255,255,0.05)' },
-                '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-                '& .MuiInputBase-input': { color: 'white' }
-              }}
             />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="DEL/SET"
+          </FormGridItem>
+          <FormGridItem xs={12} sm={6}>
+            <FormTextField
+              label="Markup %"
               type="number"
-              value={form.deliverySetup}
-              onChange={handleNumberChange('deliverySetup')}
-              InputProps={{ startAdornment: '$' }}
-              sx={{
-                '& .MuiInputBase-root': { backgroundColor: 'rgba(255,255,255,0.05)' },
-                '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-                '& .MuiInputBase-input': { color: 'white' }
-              }}
+              value={form.markupPercent}
+              onChange={handleNumberChange('markupPercent')}
+              InputProps={{ endAdornment: '%' }}
+              helperText="Percentage markup on invoice"
             />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="A/C"
+          </FormGridItem>
+          <FormGridItem xs={12} sm={6}>
+            <FormTextField
+              label="Sales Price"
               type="number"
-              value={form.ac}
-              onChange={handleNumberChange('ac')}
+              value={form.salesPrice}
+              onChange={handleNumberChange('salesPrice')}
               InputProps={{ startAdornment: '$' }}
-              sx={{
-                '& .MuiInputBase-root': { backgroundColor: 'rgba(255,255,255,0.05)' },
-                '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-                '& .MuiInputBase-input': { color: 'white' }
-              }}
             />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="T/D"
-              type="number"
-              value={form.tileDelivery}
-              onChange={handleNumberChange('tileDelivery')}
-              InputProps={{ startAdornment: '$' }}
-              sx={{
-                '& .MuiInputBase-root': { backgroundColor: 'rgba(255,255,255,0.05)' },
-                '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-                '& .MuiInputBase-input': { color: 'white' }
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Steps"
-              type="number"
-              value={form.steps}
-              onChange={handleNumberChange('steps')}
-              InputProps={{ startAdornment: '$' }}
-              sx={{
-                '& .MuiInputBase-root': { backgroundColor: 'rgba(255,255,255,0.05)' },
-                '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-                '& .MuiInputBase-input': { color: 'white' }
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Trim Out"
-              type="number"
-              value={form.trimOut}
-              onChange={handleNumberChange('trimOut')}
-              InputProps={{ startAdornment: '$' }}
-              sx={{
-                '& .MuiInputBase-root': { backgroundColor: 'rgba(255,255,255,0.05)' },
-                '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-                '& .MuiInputBase-input': { color: 'white' }
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Skirting"
-              type="number"
-              value={form.skirting}
-              onChange={handleNumberChange('skirting')}
-              InputProps={{ startAdornment: '$' }}
-              sx={{
-                '& .MuiInputBase-root': { backgroundColor: 'rgba(255,255,255,0.05)' },
-                '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-                '& .MuiInputBase-input': { color: 'white' }
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="Pad"
-              type="number"
-              value={form.pad}
-              onChange={handleNumberChange('pad')}
-              InputProps={{ startAdornment: '$' }}
-              sx={{
-                '& .MuiInputBase-root': { backgroundColor: 'rgba(255,255,255,0.05)' },
-                '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-                '& .MuiInputBase-input': { color: 'white' }
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="ESC"
-              type="number"
-              value={form.esc}
-              onChange={handleNumberChange('esc')}
-              InputProps={{ startAdornment: '$' }}
-              sx={{
-                '& .MuiInputBase-root': { backgroundColor: 'rgba(255,255,255,0.05)' },
-                '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-                '& .MuiInputBase-input': { color: 'white' }
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="MISC"
-              type="number"
-              value={form.misc}
-              onChange={handleNumberChange('misc')}
-              InputProps={{ startAdornment: '$' }}
-              sx={{
-                '& .MuiInputBase-root': { backgroundColor: 'rgba(255,255,255,0.05)' },
-                '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-                '& .MuiInputBase-input': { color: 'white' }
-              }}
-            />
-          </Grid>
-        </Grid>
+          </FormGridItem>
+        </FormGrid>
+      </FormSection>
 
-        <Typography variant="subtitle1" sx={{ color: 'white', fontWeight: 600, mt: 2 }}>Pricing</Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
-              label="SRG (%)"
-              type="number"
-              value={form.srg}
-              onChange={handleNumberChange('srg')}
-              sx={{
-                '& .MuiInputBase-root': { backgroundColor: 'rgba(255,255,255,0.05)' },
-                '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-                '& .MuiInputBase-input': { color: 'white' }
-              }}
+      <FormSection title="Details">
+        <FormGrid>
+          <FormGridItem xs={12} sm={6}>
+            <FormSelect
+              label="Width"
+              value={form.width}
+              onChange={handleChange('width')}
+              options={[
+                { value: 'single', label: 'Single-Wide' },
+                { value: 'double', label: 'Double-Wide' }
+              ]}
+              required
             />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <TextField
-                fullWidth
-                label="Sales Price"
-                type="number"
-                value={form.salesPrice}
-                onChange={handleNumberChange('salesPrice')}
-                InputProps={{ startAdornment: '$' }}
-                sx={{
-                  '& .MuiInputBase-root': { backgroundColor: 'rgba(255,255,255,0.05)' },
-                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-                  '& .MuiInputBase-input': { color: 'white' }
-                }}
-              />
-              <Button
-                variant="outlined"
-                onClick={handleCalculateSalesPrice}
-                sx={{ minWidth: 'auto', px: 2 }}
-              >
-                Calc
-              </Button>
-            </Box>
-          </Grid>
-        </Grid>
-
-        <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ mt: 3 }}>
-          <Button variant="outlined" onClick={onClose} sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.3)' }}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleSubmit}
-            disabled={!isValid || submitting}
-            sx={{ backgroundColor: '#90caf9', '&:hover': { backgroundColor: '#64b5f6' } }}
-          >
-            {submitLabel || (initial ? 'Save Changes' : 'Add Inventory')}
-          </Button>
-        </Stack>
-      </Stack>
-    </Drawer>
+          </FormGridItem>
+          <FormGridItem xs={12} sm={6}>
+            <FormSelect
+              label="Status"
+              value={form.status}
+              onChange={handleChange('status')}
+              options={[
+                { value: 'quote', label: 'Quote' },
+                { value: 'ordered', label: 'Ordered' },
+                { value: 'stock', label: 'In Stock' },
+                { value: 'sold', label: 'Sold' }
+              ]}
+            />
+          </FormGridItem>
+        </FormGrid>
+      </FormSection>
+    </BaseDrawer>
   );
 }
 
 export default AddInventoryDrawer;
-
-

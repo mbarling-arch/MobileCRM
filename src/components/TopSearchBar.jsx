@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, InputBase, IconButton, Stack, Avatar, Tooltip } from '@mui/material';
 import { Search as SearchIcon, Brightness4 as DarkModeIcon, Brightness7 as LightModeIcon, PersonAdd as PersonAddIcon } from '@mui/icons-material';
 import { useTheme } from '../ThemeContext';
-import { useAuth } from '../AuthContext';
+import { useAuth } from '../hooks/useAuth';
 
 function TopSearchBar({ onAvatarClick, onQuickAddLead }) {
   const { isDarkMode, toggleTheme } = useTheme();
