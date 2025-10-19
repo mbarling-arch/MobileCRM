@@ -2,32 +2,8 @@ import React, { useState } from 'react';
 import { Paper, Stack, Typography, Button as MuiButton, Box, MenuItem, Select, FormControl, IconButton, Collapse } from '@mui/material';
 import { Edit as EditIcon, ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
 import { FormTextField, FormGrid, FormGridItem } from '../../FormField';
-
-// Helper to mask SSN
-const maskSSN = (ssn) => {
-  if (!ssn) return '';
-  if (ssn.includes('X') || ssn.length <= 4) return ssn;
-  const last4 = ssn.slice(-4);
-  return 'XXX-XX-' + last4;
-};
-
-const STATES = [
-  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
-  'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
-  'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
-  'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
-  'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'
-];
-
-const RACES = [
-  'American Indian or Alaska Native',
-  'Asian',
-  'Black or African American',
-  'Native Hawaiian or Other Pacific Islander',
-  'White',
-  'Two or More Races',
-  'Prefer Not to Answer'
-];
+import { maskSSN } from '../../../utils/formatters';
+import { US_STATES, RACE_OPTIONS, GENDER_OPTIONS } from '../../../constants/prospectConstants';
 
 export const ProspectHeader = ({
   buyerInfo,
@@ -157,8 +133,9 @@ export const ProspectHeader = ({
                 onChange={(e) => setBuyerInfo({ ...buyerInfo, gender: e.target.value })}
               >
                 <MenuItem value=""><em>Select...</em></MenuItem>
-                <MenuItem value="M">Male</MenuItem>
-                <MenuItem value="F">Female</MenuItem>
+                {GENDER_OPTIONS.map(option => (
+                  <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+                ))}
               </Select>
             </FormControl>
           </FormGridItem>
@@ -170,7 +147,7 @@ export const ProspectHeader = ({
                 onChange={(e) => setBuyerInfo({ ...buyerInfo, race: e.target.value })}
               >
                 <MenuItem value=""><em>Select...</em></MenuItem>
-                {RACES.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+                {RACE_OPTIONS.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
               </Select>
             </FormControl>
           </FormGridItem>
@@ -190,7 +167,7 @@ export const ProspectHeader = ({
                 onChange={(e) => setBuyerInfo({ ...buyerInfo, licenseState: e.target.value })}
               >
                 <MenuItem value=""><em>Select...</em></MenuItem>
-                {STATES.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                {US_STATES.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
               </Select>
             </FormControl>
           </FormGridItem>
@@ -218,7 +195,7 @@ export const ProspectHeader = ({
                 onChange={(e) => setBuyerInfo({ ...buyerInfo, state: e.target.value })}
               >
                 <MenuItem value=""><em>Select...</em></MenuItem>
-                {STATES.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+                {US_STATES.map(s => <MenuItem key={s} value={s}>{s}</MenuItem>)}
               </Select>
             </FormControl>
           </FormGridItem>

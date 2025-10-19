@@ -1,16 +1,11 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
-import { PROSPECT_TABS } from '../../../constants/prospectConstants';
+import { PROJECT_TABS } from '../../../constants/projectConstants';
 
-export const ProspectTabs = ({ activeTab, setActiveTab }) => {
-  const tabs = PROSPECT_TABS;
-
-  const currentIndex = tabs.findIndex(tab => tab.id === activeTab);
-  const tabIndex = currentIndex >= 0 ? currentIndex : 0;
-
+export const ProjectTabs = ({ activeTab, setActiveTab }) => {
   return (
     <Box sx={{ display: 'flex', gap: 0.5, borderBottom: '2px solid', borderColor: 'divider' }}>
-      {tabs.map((tab) => {
+      {PROJECT_TABS.map((tab) => {
         const isActive = tab.id === activeTab;
         
         return (
@@ -53,3 +48,4 @@ export const ProspectTabs = ({ activeTab, setActiveTab }) => {
     </Box>
   );
 };
+

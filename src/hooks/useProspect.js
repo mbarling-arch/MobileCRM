@@ -33,6 +33,25 @@ import {
   setClearedConditions as setClearedConditionsAction,
   selectConditionsState
 } from '../redux-store/slices/conditionsSlice';
+import {
+  setProspectNotes,
+  selectProspectNotes
+} from '../redux-store/slices/notesSlice';
+import {
+  setProspectDocuments,
+  selectProspectDocuments
+} from '../redux-store/slices/documentsSlice';
+import {
+  setProspectCalls,
+  setProspectEmails,
+  setProspectAppointments,
+  setProspectVisits,
+  selectProspectActivities
+} from '../redux-store/slices/activitiesSlice';
+import {
+  setProspectTasks,
+  selectProspectTasks
+} from '../redux-store/slices/tasksSlice';
 
 export const useProspect = ({ prospectId, isDeal = false }) => {
   const dispatch = useAppDispatch();

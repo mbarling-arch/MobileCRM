@@ -1,5 +1,7 @@
 import React from 'react';
 import { Box, Paper, Typography, Stack } from '@mui/material';
+import { formatCurrency } from '../../../utils/formatters';
+import { labelize } from '../../../utils/prospectHelpers';
 
 const OverviewTab = ({ prospectId, userProfile, isDeal, context }) => {
   const overviewData = context?.prospect?.overview || {};
@@ -12,40 +14,6 @@ const OverviewTab = ({ prospectId, userProfile, isDeal, context }) => {
     if (!v) return <Typography component="span" sx={{ color: 'text.disabled', fontSize: 15 }}>—</Typography>;
     const num = Number(v);
     return <Typography component="span" sx={{ color: 'text.primary', fontSize: 15, fontWeight: 500 }}>${num.toLocaleString()}</Typography>;
-  };
-
-  const labelize = (key) => {
-    const map = {
-      own_free_clear: 'Own Free and Clear',
-      buying: 'Buying',
-      family: 'Family',
-      subdivide: 'Sub Divide',
-      park: 'Park',
-      cash: 'Cash',
-      chattel: 'Chattel',
-      land_lieu: 'Land/Lieu',
-      land_home: 'Land/Home',
-      va: 'VA',
-      fha_usda: 'FHA/USDA',
-      primary: 'Primary',
-      secondary: 'Secondary',
-      buy_for: 'Buy-For',
-      investment: 'Investment',
-      none: 'None',
-      selling_mobile: 'Selling Mobile',
-      selling_site: 'Selling Site Built',
-      tear_down: 'Tear Down',
-      renting: 'Renting',
-      other: 'Other',
-      // Lead sources
-      facebook: 'Facebook',
-      phone_up: 'Phone Up',
-      website: 'Website',
-      google: 'Google',
-      bandit: 'Bandit',
-      referral: 'Referral',
-    };
-    return map[key] || key;
   };
 
   const LabeledField = ({ label, children }) => (

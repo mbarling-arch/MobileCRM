@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Box, Paper, Typography, Stack, Divider, IconButton, Button, TextField, MenuItem } from '@mui/material';
 import { Edit as EditIcon } from '@mui/icons-material';
+import { labelize } from '../../../utils/prospectHelpers';
+import { CONTACT_PREFERENCES } from '../../../constants/prospectConstants';
 
 const TopLabeled = ({ label, children }) => {
   return (
@@ -11,21 +13,6 @@ const TopLabeled = ({ label, children }) => {
       </Box>
     </Stack>
   );
-};
-
-const labelize = (key) => {
-  const map = {
-    phone: 'Phone',
-    email: 'Email',
-    text: 'Text',
-    facebook: 'Facebook',
-    phone_up: 'Phone Up',
-    website: 'Website',
-    google: 'Google',
-    bandit: 'Bandit',
-    referral: 'Referral',
-  };
-  return map[key] || key;
 };
 
 export const ProspectTopSection = ({ buyerInfo, coBuyerInfo, setBuyerInfo, setCoBuyerInfo, saveBuyerInfo, saveCoBuyerInfo }) => {
@@ -129,9 +116,9 @@ export const ProspectTopSection = ({ buyerInfo, coBuyerInfo, setBuyerInfo, setCo
                     <TextField size="small" label="Phone" value={buyer.phone || ''} onChange={(e) => setBuyerInfo({ ...buyer, phone: e.target.value })} fullWidth />
                     <TextField size="small" label="Email" value={buyer.email || ''} onChange={(e) => setBuyerInfo({ ...buyer, email: e.target.value })} fullWidth />
                     <TextField size="small" select label="Preferred Contact" value={buyer.preferredContact || ''} onChange={(e) => setBuyerInfo({ ...buyer, preferredContact: e.target.value })} fullWidth>
-                      <MenuItem value="phone">Phone</MenuItem>
-                      <MenuItem value="email">Email</MenuItem>
-                      <MenuItem value="text">Text</MenuItem>
+                      {CONTACT_PREFERENCES.map(option => (
+                        <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+                      ))}
                     </TextField>
                   </Box>
                   <TextField size="small" label="Street Address" value={buyer.streetAddress || ''} onChange={(e) => setBuyerInfo({ ...buyer, streetAddress: e.target.value })} fullWidth />
@@ -176,9 +163,9 @@ export const ProspectTopSection = ({ buyerInfo, coBuyerInfo, setBuyerInfo, setCo
                     <TextField size="small" label="Phone" value={coBuyer.phone || ''} onChange={(e) => setCoBuyerInfo({ ...coBuyer, phone: e.target.value })} fullWidth />
                     <TextField size="small" label="Email" value={coBuyer.email || ''} onChange={(e) => setCoBuyerInfo({ ...coBuyer, email: e.target.value })} fullWidth />
                     <TextField size="small" select label="Preferred Contact" value={coBuyer.preferredContact || ''} onChange={(e) => setCoBuyerInfo({ ...coBuyer, preferredContact: e.target.value })} fullWidth>
-                      <MenuItem value="phone">Phone</MenuItem>
-                      <MenuItem value="email">Email</MenuItem>
-                      <MenuItem value="text">Text</MenuItem>
+                      {CONTACT_PREFERENCES.map(option => (
+                        <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+                      ))}
                     </TextField>
                   </Box>
                   <TextField size="small" label="Street Address" value={coBuyer.streetAddress || ''} onChange={(e) => setCoBuyerInfo({ ...coBuyer, streetAddress: e.target.value })} fullWidth />

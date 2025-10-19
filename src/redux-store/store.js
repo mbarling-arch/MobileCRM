@@ -4,6 +4,10 @@ import userReducer from './slices/userSlice';
 import prospectReducer from './slices/prospectSlice';
 import conditionsReducer from './slices/conditionsSlice';
 import landAssetReducer from './slices/landAssetSlice';
+import notesReducer from './slices/notesSlice';
+import documentsReducer from './slices/documentsSlice';
+import activitiesReducer from './slices/activitiesSlice';
+import tasksReducer from './slices/tasksSlice';
 
 export const store = configureStore({
   reducer: {
@@ -11,7 +15,11 @@ export const store = configureStore({
     user: userReducer,
     prospect: prospectReducer,
     conditions: conditionsReducer,
-    landAsset: landAssetReducer
+    landAsset: landAssetReducer,
+    notes: notesReducer,
+    documents: documentsReducer,
+    activities: activitiesReducer,
+    tasks: tasksReducer
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
