@@ -118,8 +118,16 @@ const HomeLandInfoTab = ({ prospectId, userProfile, context, isDeal }) => {
                   <Grid item xs={12} sm={6}>
                     <TextField
                       fullWidth
-                      label="B/B (Bed/Bath)"
-                      value={homeDetails.bedBath || ''}
+                      label="Bedrooms"
+                      value={homeDetails.bedrooms || ''}
+                      InputProps={{ readOnly: true }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Bathrooms"
+                      value={homeDetails.bathrooms || ''}
                       InputProps={{ readOnly: true }}
                     />
                   </Grid>

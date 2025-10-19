@@ -178,3 +178,5 @@ export const ApplicantInfoSection = ({ data, onChange }) => {
   );
 };
 
+
+

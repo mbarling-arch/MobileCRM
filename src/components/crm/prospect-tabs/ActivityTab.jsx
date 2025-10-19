@@ -1,26 +1,22 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Box, Typography, Button, Stack, Paper, Tabs, Tab, Chip } from '@mui/material';
-import { Phone as PhoneIcon, Email as EmailIcon, Event as EventIcon, Home as HomeIcon, Task as TaskIcon, CheckCircle as CheckCircleIcon } from '@mui/icons-material';
+import { Box, Typography, Button, Stack, Paper, Chip } from '@mui/material';
+import { Phone as PhoneIcon, Email as EmailIcon, Event as EventIcon, Home as HomeIcon } from '@mui/icons-material';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import LeadCallLogDrawer from '../LeadCallLogDrawer';
-import LeadTaskDrawer from '../LeadTaskDrawer';
 import LeadAppointmentDrawer from '../LeadAppointmentDrawer';
 import VisitLogDrawer from '../VisitLogDrawer';
 import EmailDrawer from '../EmailDrawer';
 
 const ActivityTab = ({ prospectId, userProfile, context }) => {
-  const [activeTab, setActiveTab] = useState(0); // 0 = Activities, 1 = Tasks
   const [calls, setCalls] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [visits, setVisits] = useState([]);
   const [emails, setEmails] = useState([]);
-  const [tasks, setTasks] = useState([]);
   const [users, setUsers] = useState([]);
   
   // Drawer states
   const [callDrawerOpen, setCallDrawerOpen] = useState(false);
-  const [taskDrawerOpen, setTaskDrawerOpen] = useState(false);
   const [appointmentDrawerOpen, setAppointmentDrawerOpen] = useState(false);
   const [visitDrawerOpen, setVisitDrawerOpen] = useState(false);
   const [emailDrawerOpen, setEmailDrawerOpen] = useState(false);
@@ -62,7 +58,6 @@ const ActivityTab = ({ prospectId, userProfile, context }) => {
     safeAttach([...base, 'appointments'], setAppointments);
     safeAttach([...base, 'visits'], setVisits);
     safeAttach([...base, 'emails'], setEmails);
-    safeAttach([...base, 'tasks'], setTasks);
     return () => unsubs.forEach(u => u());
   }, [userProfile?.companyId, prospectId]);
 
@@ -90,22 +85,8 @@ const ActivityTab = ({ prospectId, userProfile, context }) => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      {/* Tab Navigation */}
-      <Paper sx={{ p: 0 }}>
-        <Tabs 
-          value={activeTab} 
-          onChange={(e, newValue) => setActiveTab(newValue)}
-          variant="fullWidth"
-          sx={{ borderBottom: 1, borderColor: 'divider' }}
-        >
-          <Tab label="Activities" sx={{ fontSize: 16, fontWeight: 600 }} />
-          <Tab label="Tasks" sx={{ fontSize: 16, fontWeight: 600 }} />
-        </Tabs>
-      </Paper>
-
-      {/* Activities Tab Content */}
-      {activeTab === 0 && (
-        <Paper sx={{ p: 3 }}>
+      {/* Activities Content */}
+      <Paper sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
             <Typography sx={{ color: 'text.primary', fontWeight: 700, fontSize: 20 }}>
               Activity Timeline
@@ -177,84 +158,14 @@ const ActivityTab = ({ prospectId, userProfile, context }) => {
             ))}
             {activities.length === 0 && (
               <Typography sx={{ color: 'text.disabled', textAlign: 'center', py: 4, fontStyle: 'italic' }}>No activity yet.</Typography>
-            )}
-          </Stack>
-        </Paper>
-      )}
-
-      {/* Tasks Tab Content */}
-      {activeTab === 1 && (
-        <Paper sx={{ p: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-            <Typography sx={{ color: 'text.primary', fontWeight: 700, fontSize: 20 }}>
-              Tasks
-            </Typography>
-            <Button
-              onClick={() => setTaskDrawerOpen(true)}
-              size="small"
-              variant="contained"
-              color="success"
-              startIcon={<TaskIcon />}
-            >
-              Create Task
-            </Button>
-          </Box>
-
-          {/* Task List */}
-          <Stack spacing={1.5}>
-            {tasks.map((task) => {
-              const isCompleted = task.status === 'completed';
-              return (
-                <Box 
-                  key={task.id} 
-                  sx={{ 
-                    p: 2, 
-                    borderRadius: 2, 
-                    backgroundColor: isCompleted ? 'success.lighterOpacity' : 'action.hover',
-                    '&:hover': { backgroundColor: isCompleted ? 'success.lightOpacity' : 'action.selected' },
-                    transition: 'background-color 0.2s ease'
-                  }}
-                >
-                  <Stack direction="row" alignItems="center" justifyContent="space-between">
-                    <Stack spacing={0.5} sx={{ flex: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {isCompleted && <CheckCircleIcon sx={{ color: 'success.main', fontSize: 20 }} />}
-                        <Typography sx={{ color: 'text.primary', fontWeight: 600, fontSize: 15, textDecoration: isCompleted ? 'line-through' : 'none' }}>
-                          {task.title || 'Untitled Task'}
-                        </Typography>
-                      </Box>
-                      <Typography sx={{ color: 'text.secondary', fontSize: 13 }}>{task.description || 'No description'}</Typography>
-                      <Typography sx={{ color: 'text.disabled', fontSize: 12, mt: 0.5 }}>
-                        Due: {task.dueDate?.toDate ? task.dueDate.toDate().toLocaleDateString() : 'No due date'}
-                      </Typography>
-                    </Stack>
-                    <Chip 
-                      size="small" 
-                      label={task.status || 'pending'} 
-                      color={isCompleted ? 'success' : task.status === 'in-progress' ? 'warning' : 'default'}
-                    />
-                  </Stack>
-                </Box>
-              );
-            })}
-            {tasks.length === 0 && (
-              <Typography sx={{ color: 'text.disabled', textAlign: 'center', py: 4, fontStyle: 'italic' }}>No tasks yet.</Typography>
-            )}
-          </Stack>
-        </Paper>
-      )}
+          )}
+        </Stack>
+      </Paper>
 
       {/* Drawers */}
       <LeadCallLogDrawer
         open={callDrawerOpen}
         onClose={() => setCallDrawerOpen(false)}
-        leadId={prospectId}
-        companyId={userProfile?.companyId}
-        docType="prospects"
-      />
-      <LeadTaskDrawer
-        open={taskDrawerOpen}
-        onClose={() => setTaskDrawerOpen(false)}
         leadId={prospectId}
         companyId={userProfile?.companyId}
         docType="prospects"

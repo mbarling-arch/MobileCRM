@@ -29,9 +29,9 @@ const theme = (settings, mode) => {
     customShadows: customShadows(mode),
     // Main color channels for use in rgba() calculations
     mainColorChannels: {
-      light: '46 38 61',
+      light: '30 41 59',
       dark: '231 227 252',
-      lightShadow: '46 38 61',
+      lightShadow: '100 116 139',
       darkShadow: '19 17 32'
     }
   }

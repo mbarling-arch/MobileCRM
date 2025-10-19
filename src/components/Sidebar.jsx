@@ -49,7 +49,7 @@ function Sidebar({
           borderColor: 'customColors.sidebarBorder',
           boxShadow: '4px 0 12px rgba(0,0,0,0.35)',
           backgroundColor: 'customColors.sidebarBackground',
-          color: 'rgba(255,255,255,0.85)',
+          color: 'primary.main',
           transition: 'width 200ms ease',
           overflowY: 'auto',
           scrollbarWidth: 'none',
@@ -62,12 +62,12 @@ function Sidebar({
     >
       <Toolbar sx={{ justifyContent: isExpanded ? 'space-between' : 'center' }}>
         {isExpanded && (
-          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main' }}>
             {title}
           </Typography>
         )}
         {variant === 'permanent' && (
-          <IconButton color="inherit" onClick={() => onPinnedChange(!pinned)}>
+          <IconButton sx={{ color: 'primary.main' }} onClick={() => onPinnedChange(!pinned)}>
             {pinned ? <CircleFilledIcon /> : <CircleIcon />}
           </IconButton>
         )}
@@ -87,18 +87,23 @@ function Sidebar({
                   borderRadius: 2,
                   mx: isExpanded ? 1 : 0,
                   justifyContent: isExpanded ? 'flex-start' : 'center',
-                  '& .MuiListItemIcon-root': { minWidth: isExpanded ? 40 : 0, justifyContent: 'center' },
+                  color: 'primary.main',
+                  '& .MuiListItemIcon-root': { 
+                    minWidth: isExpanded ? 40 : 0, 
+                    justifyContent: 'center',
+                    color: 'primary.main'
+                  },
                   '&.Mui-selected': isExpanded ? {
-                    backgroundColor: 'rgba(255,255,255,0.10)',
-                    color: 'inherit',
-                    '&:hover': { backgroundColor: 'rgba(255,255,255,0.12)' },
-                    '& .MuiListItemIcon-root': { color: 'inherit' },
+                    backgroundColor: 'primary.lightOpacity',
+                    color: 'primary.main',
+                    '&:hover': { backgroundColor: 'primary.mainOpacity' },
+                    '& .MuiListItemIcon-root': { color: 'primary.main' },
                   } : {
                     backgroundColor: 'transparent',
-                    color: 'inherit',
-                    '& .MuiListItemIcon-root': { color: 'inherit' },
+                    color: 'primary.main',
+                    '& .MuiListItemIcon-root': { color: 'primary.main' },
                   },
-                  '&:hover': { backgroundColor: 'rgba(255,255,255,0.06)' },
+                  '&:hover': { backgroundColor: 'primary.lighterOpacity' },
                 }}
               >
                 <ListItemIcon>

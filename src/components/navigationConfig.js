@@ -80,6 +80,13 @@ export const CRM_NAV_ITEMS = [
     showForRoles: ['admin', 'leadership', 'general_manager', 'sales', 'operations']
   },
   {
+    id: 'land-asset',
+    label: 'Spec Properties',
+    icon: ServiceIcon,
+    path: '/crm/land-asset',
+    showForRoles: ['admin', 'leadership', 'general_manager', 'sales', 'operations']
+  },
+  {
     id: 'inventory',
     label: 'Inventory',
     icon: InventoryIcon,

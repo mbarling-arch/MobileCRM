@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Dialog, Box, Stack, Typography, Button, TextField, MenuItem, Chip, Paper } from '@mui/material';
+import { Dialog, Box, Stack, Typography, Button, TextField, MenuItem, Chip, Paper, useTheme } from '@mui/material';
 import { db, storage } from '../../firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -32,6 +32,7 @@ const QUICK_DOCUMENTS = {
 };
 
 function AddDocumentDialog({ open, onClose, companyId, docId, docType }) {
+  const theme = useTheme();
   const [documents, setDocuments] = useState([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef();
@@ -166,17 +167,23 @@ function AddDocumentDialog({ open, onClose, companyId, docId, docType }) {
       onClose={onClose}
       maxWidth="lg"
       fullWidth
-      PaperProps={{ sx: { backgroundColor: '#2a2746', border: '1px solid rgba(255,255,255,0.08)' } }}
+      PaperProps={{ 
+        sx: { 
+          backgroundColor: 'background.paper',
+          border: '1px solid',
+          borderColor: 'divider'
+        } 
+      }}
     >
       <Box sx={{ p: 3 }}>
-        <Typography variant="h6" sx={{ color: 'white', fontWeight: 600, mb: 3 }}>
+        <Typography variant="h6" sx={{ color: 'text.primary', fontWeight: 600, mb: 3 }}>
           Upload Documents
         </Typography>
 
         <Stack spacing={3}>
           {/* File Selection */}
           <Box>
-            <Typography variant="subtitle2" sx={{ color: 'white', mb: 1 }}>
+            <Typography variant="subtitle2" sx={{ color: 'text.primary', mb: 1 }}>
               Select Files *
             </Typography>
             <input
@@ -188,14 +195,14 @@ function AddDocumentDialog({ open, onClose, companyId, docId, docType }) {
               style={{
                 width: '100%',
                 padding: '12px',
-                backgroundColor: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.2)',
+                backgroundColor: theme.palette.action.hover,
+                border: `1px solid ${theme.palette.divider}`,
                 borderRadius: '4px',
-                color: 'white',
+                color: theme.palette.text.primary,
                 cursor: 'pointer'
               }}
             />
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', mt: 1, display: 'block' }}>
+            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 1, display: 'block' }}>
               Select multiple files at once. Supported: PDF, Word, Text, Images (max 25MB each)
             </Typography>
           </Box>
@@ -203,22 +210,22 @@ function AddDocumentDialog({ open, onClose, companyId, docId, docType }) {
           {/* Document List */}
           {documents.length > 0 && (
             <Box>
-              <Typography variant="subtitle1" sx={{ color: 'white', mb: 2, fontWeight: 600 }}>
+              <Typography variant="subtitle1" sx={{ color: 'text.primary', mb: 2, fontWeight: 600 }}>
                 Documents to Upload ({documents.length})
               </Typography>
 
               <Stack spacing={2}>
                 {documents.map((doc, index) => (
-                  <Paper key={index} sx={{ p: 2, backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <Paper key={index} sx={{ p: 2, backgroundColor: 'action.hover', border: '1px solid', borderColor: 'divider' }}>
                     <Stack spacing={2}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography variant="subtitle2" sx={{ color: 'white', fontWeight: 600 }}>
+                        <Typography variant="subtitle2" sx={{ color: 'text.primary', fontWeight: 600 }}>
                           📄 {doc.file.name}
                         </Typography>
                         <Button
                           size="small"
                           onClick={() => setDocuments(prev => prev.filter((_, i) => i !== index))}
-                          sx={{ color: '#f44336', minWidth: 'auto', p: 0.5 }}
+                          sx={{ color: 'error.main', minWidth: 'auto', p: 0.5 }}
                         >
                           ✕
                         </Button>
@@ -231,7 +238,6 @@ function AddDocumentDialog({ open, onClose, companyId, docId, docType }) {
                           label="Document Name"
                           value={doc.name}
                           onChange={(e) => updateDocument(index, 'name', e.target.value)}
-                          sx={dialogFieldSx}
                           size="small"
                         />
                         <TextField
@@ -240,7 +246,6 @@ function AddDocumentDialog({ open, onClose, companyId, docId, docType }) {
                           value={doc.category}
                           onChange={(e) => updateDocument(index, 'category', e.target.value)}
                           select
-                          sx={dialogFieldSx}
                           size="small"
                         >
                           <MenuItem value="Customer Documents">Customer Documents</MenuItem>
@@ -258,7 +263,7 @@ function AddDocumentDialog({ open, onClose, companyId, docId, docType }) {
                       {/* Quick Document Selection for this document */}
                       {QUICK_DOCUMENTS[doc.category] && (
                         <Box>
-                          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', mb: 1, display: 'block' }}>
+                          <Typography variant="caption" sx={{ color: 'text.secondary', mb: 1, display: 'block' }}>
                             Quick Select:
                           </Typography>
                           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
@@ -267,12 +272,9 @@ function AddDocumentDialog({ open, onClose, companyId, docId, docType }) {
                                 key={docName}
                                 label={docName}
                                 onClick={() => updateDocument(index, 'name', docName)}
+                                color={doc.name === docName ? 'primary' : 'default'}
+                                variant={doc.name === docName ? 'filled' : 'outlined'}
                                 sx={{
-                                  backgroundColor: doc.name === docName ? '#2196f3' : 'rgba(255,255,255,0.1)',
-                                  color: 'white',
-                                  '&:hover': {
-                                    backgroundColor: doc.name === docName ? '#1976d2' : 'rgba(255,255,255,0.2)',
-                                  },
                                   cursor: 'pointer',
                                   fontSize: '0.75rem'
                                 }}
@@ -290,7 +292,6 @@ function AddDocumentDialog({ open, onClose, companyId, docId, docType }) {
                         label="Description (Optional)"
                         value={doc.description}
                         onChange={(e) => updateDocument(index, 'description', e.target.value)}
-                        sx={dialogFieldSx}
                         size="small"
                       />
                     </Stack>
@@ -302,12 +303,11 @@ function AddDocumentDialog({ open, onClose, companyId, docId, docType }) {
         </Stack>
 
         <Stack direction="row" justifyContent="flex-end" spacing={2} sx={{ mt: 3 }}>
-          <Button onClick={onClose} sx={{ color: 'white' }}>Cancel</Button>
+          <Button onClick={onClose} variant="outlined">Cancel</Button>
           <Button
             onClick={handleSubmit}
             variant="contained"
             disabled={uploading || documents.length === 0}
-            sx={{ backgroundColor: '#2196f3', '&:hover': { backgroundColor: '#1976d2' } }}
           >
             {uploading ? 'Uploading...' : `Upload ${documents.length} Document${documents.length !== 1 ? 's' : ''}`}
           </Button>
@@ -316,18 +316,5 @@ function AddDocumentDialog({ open, onClose, companyId, docId, docType }) {
     </Dialog>
   );
 }
-
-const dialogFieldSx = {
-  '& .MuiInputBase-root': {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    '&:hover': { backgroundColor: 'rgba(255,255,255,0.08)' }
-  },
-  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.7)' },
-  '& .MuiInputBase-input': { color: 'white' },
-  '& .MuiSelect-select': { color: 'white' },
-  '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.12)' },
-  '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.2)' },
-  '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#90caf9' }
-};
 
 export default AddDocumentDialog;

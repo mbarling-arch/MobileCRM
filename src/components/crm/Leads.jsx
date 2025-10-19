@@ -501,7 +501,12 @@ function Leads() {
                   const leadSnap = await getDoc(leadRef);
                   const leadData = leadSnap.data();
                   const prospectRef = fsDoc(db, 'companies', companyId, 'prospects', lead.id);
-                  await setDoc(prospectRef, { ...leadData, type: 'prospect', convertedAt: serverTimestamp() });
+                  await setDoc(prospectRef, { 
+                    ...leadData, 
+                    type: 'prospect', 
+                    stage: 'discovery',
+                    convertedAt: serverTimestamp() 
+                  });
                   const subcollections = ['callLogs', 'tasks', 'appointments'];
                   for (const sub of subcollections) {
                     const subCol = fsCollection(db, 'companies', companyId, 'leads', lead.id, sub);
@@ -554,16 +559,16 @@ function LeadTable({ rows, formatDate, getUserDisplayName, enableActions, onEdit
         size="small"
         sx={{
           '& thead th': {
-            color: 'rgba(255,255,255,0.9)',
+            color: 'text.secondary',
             fontWeight: 600,
-            borderBottomColor: 'rgba(255,255,255,0.08)'
+            borderBottomColor: 'divider'
           },
           '& tbody td': {
-            color: 'rgba(255,255,255,0.92)',
-            borderBottomColor: 'rgba(255,255,255,0.06)'
+            color: 'text.primary',
+            borderBottomColor: 'divider'
           },
           '& tbody tr:hover': {
-            backgroundColor: 'rgba(255,255,255,0.04)'
+            backgroundColor: 'action.hover'
           }
         }}
       >

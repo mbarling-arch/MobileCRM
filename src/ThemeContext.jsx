@@ -40,7 +40,7 @@ const buildTheme = (mode) => {
             // Clean look - subtle shadow instead of border
             boxShadow: mode === 'dark' 
               ? '4px 0 12px rgba(0, 0, 0, 0.3)' 
-              : '4px 0 12px rgba(46, 38, 61, 0.08)',
+              : '4px 0 16px rgba(100, 116, 139, 0.06)',
             border: 'none',
             borderRadius: '0 12px 12px 0'
           },
@@ -53,7 +53,7 @@ const buildTheme = (mode) => {
             // Clean look - subtle shadow instead of border
             boxShadow: mode === 'dark'
               ? '0 2px 8px rgba(0, 0, 0, 0.3)'
-              : '0 2px 8px rgba(46, 38, 61, 0.08)',
+              : '0 1px 3px rgba(100, 116, 139, 0.08)',
             border: 'none'
           },
         },
@@ -63,21 +63,21 @@ const buildTheme = (mode) => {
 
   // Add custom colors for backward compatibility
   theme.customColors = {
-    layoutBackground: mode === 'dark' ? '#28243D' : '#F4F5FA',
+    layoutBackground: mode === 'dark' ? '#28243D' : '#F1F5F9',
     sidebarBackground: mode === 'dark' ? '#312D4B' : '#FFFFFF',
-    sidebarBorder: mode === 'dark' ? 'rgba(231, 227, 252, 0.12)' : 'rgba(46, 38, 61, 0.2)',
+    sidebarBorder: mode === 'dark' ? 'rgba(231, 227, 252, 0.12)' : '#CBD5E1',
     drawerBackground: mode === 'dark' ? '#312D4B' : '#FFFFFF',
-    drawerBorder: mode === 'dark' ? 'rgba(231, 227, 252, 0.12)' : 'rgba(46, 38, 61, 0.2)',
+    drawerBorder: mode === 'dark' ? 'rgba(231, 227, 252, 0.12)' : '#CBD5E1',
     tableBackground: mode === 'dark' ? '#312D4B' : '#FFFFFF',
-    tableBorder: mode === 'dark' ? 'rgba(231, 227, 252, 0.12)' : 'rgba(46, 38, 61, 0.2)',
-    tableRowBackground: mode === 'dark' ? '#3D3759' : '#F9FAFB',
-    tableHeaderBorder: mode === 'dark' ? 'rgba(231, 227, 252, 0.12)' : 'rgba(46, 38, 61, 0.2)',
+    tableBorder: mode === 'dark' ? 'rgba(231, 227, 252, 0.12)' : '#CBD5E1',
+    tableRowBackground: mode === 'dark' ? '#3D3759' : '#F8FAFC',
+    tableHeaderBorder: mode === 'dark' ? 'rgba(231, 227, 252, 0.12)' : '#CBD5E1',
     calendarBackground: mode === 'dark' ? '#312D4B' : '#FFFFFF',
-    calendarHeaderBackground: mode === 'dark' ? '#3D3759' : '#FFFFFF',
-    calendarBorder: mode === 'dark' ? 'rgba(231, 227, 252, 0.12)' : 'rgba(46, 38, 61, 0.2)',
-    calendarTodayBackground: mode === 'dark' ? 'rgba(140, 87, 255, 0.12)' : 'rgba(140, 87, 255, 0.08)',
-    calendarEventBackground: '#8C57FF',
-    calendarOffMonthBackground: mode === 'dark' ? '#28243D' : '#F4F5FA',
+    calendarHeaderBackground: mode === 'dark' ? '#3D3759' : '#F8FAFC',
+    calendarBorder: mode === 'dark' ? 'rgba(231, 227, 252, 0.12)' : '#CBD5E1',
+    calendarTodayBackground: mode === 'dark' ? 'rgba(140, 87, 255, 0.12)' : 'rgba(37, 99, 235, 0.08)',
+    calendarEventBackground: mode === 'dark' ? '#8C57FF' : '#2563EB',
+    calendarOffMonthBackground: mode === 'dark' ? '#28243D' : '#E2E8F0',
     cardBackground: mode === 'dark' ? '#312D4B' : '#FFFFFF',
   };
 

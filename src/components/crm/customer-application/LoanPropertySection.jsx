@@ -235,3 +235,5 @@ export const LoanPropertySection = ({ data, onChange }) => {
   );
 };
 
+
+

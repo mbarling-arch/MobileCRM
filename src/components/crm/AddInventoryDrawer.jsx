@@ -13,7 +13,8 @@ function AddInventoryDrawer({ open, onClose, onCreate, onSubmit, initial, submit
   const empty = {
     model: '',
     size: '',
-    bedBath: '',
+    bedrooms: '',
+    bathrooms: '',
     po: '',
     width: 'single', // single or double
     status: 'stock',
@@ -127,7 +128,8 @@ function AddInventoryDrawer({ open, onClose, onCreate, onSubmit, initial, submit
       const payload = {
         model: form.model.trim(),
         size: form.size.trim(),
-        bedBath: form.bedBath.trim(),
+        bedrooms: form.bedrooms.trim(),
+        bathrooms: form.bathrooms.trim(),
         po: form.po.trim(),
         width: form.width,
         status: form.status,
@@ -220,10 +222,20 @@ function AddInventoryDrawer({ open, onClose, onCreate, onSubmit, initial, submit
           </FormGridItem>
           <FormGridItem xs={12} sm={6}>
             <FormTextField
-              label="B/B (Bed/Bath)"
-              value={form.bedBath}
-              onChange={handleChange('bedBath')}
-              placeholder="e.g., 3/2"
+              label="Bedrooms"
+              type="number"
+              value={form.bedrooms}
+              onChange={handleChange('bedrooms')}
+              placeholder="e.g., 3"
+            />
+          </FormGridItem>
+          <FormGridItem xs={12} sm={6}>
+            <FormTextField
+              label="Bathrooms"
+              type="number"
+              value={form.bathrooms}
+              onChange={handleChange('bathrooms')}
+              placeholder="e.g., 2"
             />
           </FormGridItem>
           <FormGridItem xs={12} sm={6}>

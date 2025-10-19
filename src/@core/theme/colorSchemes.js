@@ -3,96 +3,96 @@ const colorSchemes = skin => {
     light: {
       palette: {
         primary: {
-          main: '#8C57FF',
-          light: '#A379FF',
-          dark: '#7E4EE6',
-          lighterOpacity: 'rgb(140 87 255 / 0.08)',
-          lightOpacity: 'rgb(140 87 255 / 0.16)',
-          mainOpacity: 'rgb(140 87 255 / 0.24)',
-          darkOpacity: 'rgb(140 87 255 / 0.32)',
-          darkerOpacity: 'rgb(140 87 255 / 0.38)'
+          main: '#2563EB',
+          light: '#3B82F6',
+          dark: '#1D4ED8',
+          lighterOpacity: 'rgb(37 99 235 / 0.08)',
+          lightOpacity: 'rgb(37 99 235 / 0.16)',
+          mainOpacity: 'rgb(37 99 235 / 0.24)',
+          darkOpacity: 'rgb(37 99 235 / 0.32)',
+          darkerOpacity: 'rgb(37 99 235 / 0.40)'
         },
         secondary: {
-          main: '#8A8D93',
-          light: '#A1A4A9',
-          dark: '#7C7F84',
+          main: '#64748B',
+          light: '#94A3B8',
+          dark: '#475569',
           contrastText: '#fff',
-          lighterOpacity: 'rgb(138 141 147 / 0.08)',
-          lightOpacity: 'rgb(138 141 147 / 0.16)',
-          mainOpacity: 'rgb(138 141 147 / 0.24)',
-          darkOpacity: 'rgb(138 141 147 / 0.32)',
-          darkerOpacity: 'rgb(138 141 147 / 0.38)'
+          lighterOpacity: 'rgb(100 116 139 / 0.08)',
+          lightOpacity: 'rgb(100 116 139 / 0.16)',
+          mainOpacity: 'rgb(100 116 139 / 0.24)',
+          darkOpacity: 'rgb(100 116 139 / 0.32)',
+          darkerOpacity: 'rgb(100 116 139 / 0.40)'
         },
         error: {
-          main: '#FF4C51',
-          light: '#FF7074',
-          dark: '#E64449',
+          main: '#EF4444',
+          light: '#F87171',
+          dark: '#DC2626',
           contrastText: '#fff',
-          lighterOpacity: 'rgb(255 76 81 / 0.08)',
-          lightOpacity: 'rgb(255 76 81 / 0.16)',
-          mainOpacity: 'rgb(255 76 81 / 0.24)',
-          darkOpacity: 'rgb(255 76 81 / 0.32)',
-          darkerOpacity: 'rgb(255 76 81 / 0.38)'
+          lighterOpacity: 'rgb(239 68 68 / 0.08)',
+          lightOpacity: 'rgb(239 68 68 / 0.16)',
+          mainOpacity: 'rgb(239 68 68 / 0.24)',
+          darkOpacity: 'rgb(239 68 68 / 0.32)',
+          darkerOpacity: 'rgb(239 68 68 / 0.40)'
         },
         warning: {
-          main: '#FFB400',
-          light: '#FFC333',
-          dark: '#E6A200',
+          main: '#F59E0B',
+          light: '#FBBF24',
+          dark: '#D97706',
           contrastText: '#fff',
-          lighterOpacity: 'rgb(255 180 0 / 0.08)',
-          lightOpacity: 'rgb(255 180 0 / 0.16)',
-          mainOpacity: 'rgb(255 180 0 / 0.24)',
-          darkOpacity: 'rgb(255 180 0 / 0.32)',
-          darkerOpacity: 'rgb(255 180 0 / 0.38)'
+          lighterOpacity: 'rgb(245 158 11 / 0.08)',
+          lightOpacity: 'rgb(245 158 11 / 0.16)',
+          mainOpacity: 'rgb(245 158 11 / 0.24)',
+          darkOpacity: 'rgb(245 158 11 / 0.32)',
+          darkerOpacity: 'rgb(245 158 11 / 0.40)'
         },
         info: {
-          main: '#16B1FF',
-          light: '#45C1FF',
-          dark: '#149FE6',
+          main: '#0EA5E9',
+          light: '#38BDF8',
+          dark: '#0284C7',
           contrastText: '#fff',
-          lighterOpacity: 'rgb(22 177 255 / 0.08)',
-          lightOpacity: 'rgb(22 177 255 / 0.16)',
-          mainOpacity: 'rgb(22 177 255 / 0.24)',
-          darkOpacity: 'rgb(22 177 255 / 0.32)',
-          darkerOpacity: 'rgb(22 177 255 / 0.38)'
+          lighterOpacity: 'rgb(14 165 233 / 0.08)',
+          lightOpacity: 'rgb(14 165 233 / 0.16)',
+          mainOpacity: 'rgb(14 165 233 / 0.24)',
+          darkOpacity: 'rgb(14 165 233 / 0.32)',
+          darkerOpacity: 'rgb(14 165 233 / 0.40)'
         },
         success: {
-          main: '#56CA00',
-          light: '#78D533',
-          dark: '#4DB600',
+          main: '#10B981',
+          light: '#34D399',
+          dark: '#059669',
           contrastText: '#fff',
-          lighterOpacity: 'rgb(86 202 0 / 0.08)',
-          lightOpacity: 'rgb(86 202 0 / 0.16)',
-          mainOpacity: 'rgb(86 202 0 / 0.24)',
-          darkOpacity: 'rgb(86 202 0 / 0.32)',
-          darkerOpacity: 'rgb(86 202 0 / 0.38)'
+          lighterOpacity: 'rgb(16 185 129 / 0.08)',
+          lightOpacity: 'rgb(16 185 129 / 0.16)',
+          mainOpacity: 'rgb(16 185 129 / 0.24)',
+          darkOpacity: 'rgb(16 185 129 / 0.32)',
+          darkerOpacity: 'rgb(16 185 129 / 0.40)'
         },
         text: {
-          primary: 'rgba(46, 38, 61, 0.95)',
-          secondary: 'rgba(46, 38, 61, 0.75)',
-          disabled: 'rgba(46, 38, 61, 0.45)'
+          primary: '#1E293B',
+          secondary: '#64748B',
+          disabled: '#94A3B8'
         },
-        divider: 'rgba(46, 38, 61, 0.2)',
+        divider: '#E2E8F0',
         background: {
-          default: skin === 'bordered' ? '#FFFFFF' : '#F4F5FA',
+          default: skin === 'bordered' ? '#FFFFFF' : '#F1F5F9',
           paper: '#FFFFFF'
         },
         action: {
-          active: 'rgba(46, 38, 61, 0.6)',
-          hover: 'rgba(46, 38, 61, 0.08)',
-          selected: 'rgba(140, 87, 255, 0.12)',
-          disabled: 'rgba(46, 38, 61, 0.3)',
-          disabledBackground: 'rgba(46, 38, 61, 0.12)',
-          focus: 'rgba(46, 38, 61, 0.1)'
+          active: '#64748B',
+          hover: 'rgba(37, 99, 235, 0.04)',
+          selected: 'rgba(37, 99, 235, 0.08)',
+          disabled: '#CBD5E1',
+          disabledBackground: '#F1F5F9',
+          focus: 'rgba(37, 99, 235, 0.12)'
         },
         customColors: {
-          bodyBg: '#F4F5FA',
-          chatBg: '#F7F6FA',
-          greyLightBg: '#FAFAFA',
-          inputBorder: 'rgba(46, 38, 61, 0.3)',
-          tableHeaderBg: '#F9FAFB',
+          bodyBg: '#F1F5F9',
+          chatBg: '#E2E8F0',
+          greyLightBg: '#F8FAFC',
+          inputBorder: '#CBD5E1',
+          tableHeaderBg: '#F8FAFC',
           tooltipText: '#FFFFFF',
-          trackBg: '#E8EAED'
+          trackBg: '#CBD5E1'
         }
       }
     },

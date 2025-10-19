@@ -24,6 +24,8 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  Tabs,
+  Tab
 } from '@mui/material';
 import {
   Print as PrintIcon,
@@ -34,6 +36,7 @@ import UnifiedLayout from '../UnifiedLayout';
 import { collection, query, onSnapshot, doc, getDoc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useUser } from '../../hooks/useUser';
+import { FormSelect } from '../FormField';
 
 function EMC({ companyId: propCompanyId, prospectId, isDeal }) {
   const { userProfile } = useUser();
@@ -54,6 +57,7 @@ function EMC({ companyId: propCompanyId, prospectId, isDeal }) {
   const [generating, setGenerating] = useState(false);
   const [emcGenerated, setEmcGenerated] = useState(false);
   const [orderType, setOrderType] = useState(null); // 'stock' or 'special'
+  const [activeTab, setActiveTab] = useState(0); // For Options/Colors/Land Improvements tabs
 
   useEffect(() => {
     const effectiveCompanyId = companyId || userProfile?.companyId;
@@ -219,7 +223,7 @@ function EMC({ companyId: propCompanyId, prospectId, isDeal }) {
       console.log('Generate EMC - Company ID:', companyId);
       
       const homeType = selectedHome.type || selectedHome.width || 'single';
-      const collectionName = isDeal ? 'deals' : 'prospects';
+      const collectionName = 'prospects'; // Always use prospects collection
       
       console.log('Generate EMC - Collection:', collectionName);
       console.log('Generate EMC - Home type:', homeType);
@@ -237,7 +241,8 @@ function EMC({ companyId: propCompanyId, prospectId, isDeal }) {
             serialNumber: selectedHome.serialNumber || selectedHome.serialNumber1,
             type: homeType,
             size: selectedHome.size,
-            bedBath: selectedHome.bedBath,
+            bedrooms: selectedHome.bedrooms,
+            bathrooms: selectedHome.bathrooms,
             squareFeet: selectedHome.squareFeet,
             salesPrice: selectedHome.salesPrice,
             invoice: selectedHome.invoice,
@@ -282,13 +287,13 @@ function EMC({ companyId: propCompanyId, prospectId, isDeal }) {
       console.log('Generate EMC - Document record created successfully');
       console.log('Generate EMC - All operations complete, showing success message');
 
-      setSnackbar({ open: true, message: 'EMC generated and saved successfully!', severity: 'success' });
+      setSnackbar({ open: true, message: 'Build saved successfully!', severity: 'success' });
       setEmcGenerated(true);
       console.log('Generate EMC - Complete! EMC generated flag set to true');
       console.log('==========================================');
     } catch (error) {
       console.error('Error generating EMC:', error);
-      setSnackbar({ open: true, message: 'Error generating EMC: ' + error.message, severity: 'error' });
+      setSnackbar({ open: true, message: 'Error saving build: ' + error.message, severity: 'error' });
     } finally {
       setGenerating(false);
     }
@@ -296,7 +301,7 @@ function EMC({ companyId: propCompanyId, prospectId, isDeal }) {
 
   const handleMarkAsPending = async (type) => {
     if (!selectedHome || !prospectId) {
-      setSnackbar({ open: true, message: 'Please select a home and generate EMC first', severity: 'error' });
+      setSnackbar({ open: true, message: 'Please select a home and save build first', severity: 'error' });
       return;
     }
     
@@ -437,7 +442,7 @@ function EMC({ companyId: propCompanyId, prospectId, isDeal }) {
               <p><strong>Model:</strong> ${selectedHome.model || 'N/A'}</p>
               <p><strong>Factory:</strong> ${selectedHome.factory || 'N/A'}</p>
               <p><strong>Size:</strong> ${selectedHome.widthLength || selectedHome.size || 'N/A'}</p>
-              <p><strong>Bed/Bath:</strong> ${selectedHome.bedBath || 'N/A'}</p>
+              <p><strong>Bedrooms/Bathrooms:</strong> ${selectedHome.bedrooms || '-'}/${selectedHome.bathrooms || '-'}</p>
               <p><strong>Square Feet:</strong> ${selectedHome.squareFeet ? selectedHome.squareFeet.toLocaleString() : 'N/A'}</p>
               <p><strong>Type:</strong> ${homeType.charAt(0).toUpperCase() + homeType.slice(1)} ${homeType !== 'tiny' && homeType !== 'used' ? 'Wide' : ''}</p>
               <p><strong>Wall R-Value:</strong> ${selectedHome.wallRValue || 'N/A'}</p>
@@ -520,294 +525,208 @@ function EMC({ companyId: propCompanyId, prospectId, isDeal }) {
   ];
 
   return (
-    <UnifiedLayout mode="crm">
-      <Box sx={{ width: '100%', maxWidth: 1200, mx: 'auto' }}>
-        {/* Header */}
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 4 }}>
-          <Typography sx={{ color: 'text.primary', fontWeight: 700, fontSize: 28 }}>
-            <HomeIcon sx={{ mr: 2, verticalAlign: 'middle' }} />
-            EMC Tool
-          </Typography>
-          {selectedHome && prospectId && (
-            <Button
-              variant="outlined"
-              color="error"
-              onClick={handleClearHome}
-              size="small"
-            >
-              Clear Selection & Unmark
-            </Button>
-          )}
-        </Stack>
-
-        {/* Debug Info - Remove after testing */}
-        {prospectId && (
-          <Paper sx={{ p: 2, mb: 2, backgroundColor: 'rgba(33, 150, 243, 0.1)', border: '1px solid rgba(33, 150, 243, 0.3)' }}>
-            <Typography variant="caption" sx={{ color: 'info.main', fontFamily: 'monospace' }}>
-              DEBUG: ProspectID={prospectId} | CompanyID={companyId} | Inventory={inventory.length} homes | 
-              Selected={selectedHome?.id || 'none'} | EMC Generated={emcGenerated ? 'Yes' : 'No'} | 
-              Order Type={orderType || 'none'}
-            </Typography>
-          </Paper>
-        )}
-
-        {/* Step 1: Select Home */}
-        <Paper sx={{ p: 3, mb: 3, backgroundColor: 'customColors.calendarHeaderBackground' }}>
-          <Typography variant="h6" sx={{ mb: 3, color: 'text.primary' }}>
-            Step 1: Select Your Home
-          </Typography>
-
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>Select a Home</InputLabel>
-            <Select
-              value={selectedHome?.id || ''}
-              onChange={(e) => {
-                const homeId = e.target.value;
-                const home = inventory.find(h => h.id === homeId);
-                if (home) {
-                  console.log('EMC - Home selected:', home);
-                  handleHomeSelect(home);
-                }
-              }}
-              label="Select a Home"
-            >
-              {inventory.map((home) => (
-                <MenuItem key={home.id} value={home.id}>
-                  <Box>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                      {home.factory} {home.model}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Serial: {home.serialNumber || home.serialNumber1} • {home.size} • {home.bedBath} • {(() => {
-                        const homeType = home.type || home.width || 'single';
-                        const typeLabel = homeType.charAt(0).toUpperCase() + homeType.slice(1);
-                        return homeType !== 'tiny' && homeType !== 'used' ? `${typeLabel}-Wide` : typeLabel;
-                      })()}
-                    </Typography>
-                  </Box>
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
+    <Box sx={{ width: '100%' }}>
+      {/* Top Section: Dropdown & Selected Home Card */}
+      <Box sx={{ display: 'flex', gap: 3, mb: 3, flexDirection: { xs: 'column', md: 'row' } }}>
+        {/* Left: Home Selection */}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <FormSelect
+            label="Select Home from Inventory"
+            value={selectedHome?.id || ''}
+            onChange={(e) => {
+              const homeId = e.target.value;
+              const home = inventory.find(h => h.id === homeId);
+              if (home) {
+                handleHomeSelect(home);
+              }
+            }}
+            options={inventory.map(home => {
+              const homeType = home.type || home.width || 'single';
+              const typeLabel = homeType.charAt(0).toUpperCase() + homeType.slice(1);
+              const typeDisplay = homeType !== 'tiny' && homeType !== 'used' ? `${typeLabel}-Wide` : typeLabel;
+              return {
+                value: home.id,
+                label: `${home.factory} ${home.model} - ${home.bedrooms || '-'}BR/${home.bathrooms || '-'}BA - ${typeDisplay}`
+              };
+            })}
+          />
           {inventory.length === 0 && (
-            <Typography sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
-              No homes currently available in inventory. Check console for debug info.
+            <Typography sx={{ textAlign: 'center', py: 4, color: 'text.secondary', fontSize: 14 }}>
+              No homes available in inventory
             </Typography>
           )}
-        </Paper>
+        </Box>
 
-        {/* Step 2: Select Options */}
+        {/* Right: Selected Home Card */}
         {selectedHome && (
-          <Paper sx={{ p: 3, mb: 3, backgroundColor: 'customColors.calendarHeaderBackground' }}>
-            <Typography variant="h6" sx={{ mb: 3, color: 'text.primary' }}>
-              Step 2: Customize Your Home
-            </Typography>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Box sx={{ p: 3, backgroundColor: 'action.hover', borderRadius: 2, border: '1px solid', borderColor: 'customColors.calendarBorder' }}>
+              <Typography sx={{ color: 'text.primary', fontWeight: 700, fontSize: 20, mb: 2, textAlign: 'center' }}>
+                {selectedHome.factory} {selectedHome.model}
+              </Typography>
+              <Stack spacing={1.5}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography sx={{ color: 'text.secondary', fontSize: 14 }}>Serial:</Typography>
+                  <Typography sx={{ color: 'text.primary', fontSize: 14, fontWeight: 500 }}>{selectedHome.serialNumber || selectedHome.serialNumber1 || '-'}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography sx={{ color: 'text.secondary', fontSize: 14 }}>Bed/Bath:</Typography>
+                  <Typography sx={{ color: 'text.primary', fontSize: 14, fontWeight: 500 }}>{selectedHome.bedrooms || '-'}BR / {selectedHome.bathrooms || '-'}BA</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography sx={{ color: 'text.secondary', fontSize: 14 }}>Square Feet:</Typography>
+                  <Typography sx={{ color: 'text.primary', fontSize: 14, fontWeight: 500 }}>{selectedHome.squareFeet?.toLocaleString()}</Typography>
+                </Box>
+                <Divider sx={{ my: 1, borderColor: 'customColors.calendarBorder' }} />
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography sx={{ color: 'text.primary', fontSize: 16, fontWeight: 600 }}>Total Price:</Typography>
+                  <Typography sx={{ color: 'primary.main', fontSize: 20, fontWeight: 700 }}>${totalPrice.toLocaleString()}</Typography>
+                </Box>
+              </Stack>
+            </Box>
+          </Box>
+        )}
+      </Box>
 
-            <Stack spacing={2}>
-              {availableOptions.map((option) => (
-                <Box key={option.key} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
-                      {option.label}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {option.description}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography variant="body2" color={selectedOptions[option.key] ? 'success.main' : 'error.main'}>
-                      {selectedOptions[option.key] ? 'Yes' : 'No'}
-                    </Typography>
+      {/* Bottom Section: Tabs */}
+      {selectedHome && (
+        <Box>
+          <Tabs
+            value={activeTab}
+            onChange={(e, newValue) => setActiveTab(newValue)}
+            sx={{
+              mb: 3,
+              borderBottom: '1px solid',
+              borderColor: 'customColors.calendarBorder',
+              '& .MuiTab-root': { color: 'text.secondary', textTransform: 'none', fontSize: 15, fontWeight: 600 },
+              '& .MuiTab-root.Mui-selected': { color: 'primary.main' },
+              '& .MuiTabs-indicator': { backgroundColor: 'primary.main', height: 3 }
+            }}
+          >
+            <Tab label="Options" />
+            <Tab label="Colors" />
+            <Tab label="Land Improvements" />
+          </Tabs>
+
+          {/* Tab Content */}
+          <Box sx={{ minHeight: 300 }}>
+            {/* Options Tab */}
+            {activeTab === 0 && (
+              <Stack spacing={2}>
+                {availableOptions.map((option) => (
+                  <Box key={option.key} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, backgroundColor: 'action.hover', borderRadius: 1 }}>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography sx={{ fontWeight: 500, color: 'text.primary', fontSize: 15 }}>
+                        {option.label}
+                      </Typography>
+                      <Typography sx={{ color: 'text.secondary', fontSize: 13 }}>
+                        {option.description}
+                      </Typography>
+                    </Box>
                     <Switch
                       checked={selectedOptions[option.key]}
                       onChange={handleOptionChange(option.key)}
                       sx={{
                         '& .MuiSwitch-switchBase.Mui-checked': {
                           color: 'success.main',
-                          '& + .MuiSwitch-track': {
-                            backgroundColor: 'success.main',
-                          },
-                        },
-                        '& .MuiSwitch-switchBase': {
-                          color: 'error.main',
-                          '& + .MuiSwitch-track': {
-                            backgroundColor: 'error.main',
-                          },
-                        },
+                          '& + .MuiSwitch-track': { backgroundColor: 'success.main' }
+                        }
                       }}
                     />
                   </Box>
-                </Box>
-              ))}
-            </Stack>
-          </Paper>
-        )}
+                ))}
+              </Stack>
+            )}
 
-        {/* Step 3: Generate EMC */}
-        {selectedHome && (
-          <Paper sx={{ p: 3, mb: 3, backgroundColor: 'customColors.calendarHeaderBackground' }}>
-            <Typography variant="h6" sx={{ mb: 3, color: 'text.primary' }}>
-              Step 3: Generate EMC
-            </Typography>
+            {/* Colors Tab */}
+            {activeTab === 1 && (
+              <Box sx={{ p: 3, textAlign: 'center' }}>
+                <Typography sx={{ color: 'text.disabled', fontSize: 16 }}>
+                  Color selection coming soon
+                </Typography>
+              </Box>
+            )}
 
-            <Box sx={{ textAlign: 'center' }}>
-              {prospectId ? (
-                <>
-                  <Button
-                    variant="contained"
-                    color="success"
-                    size="large"
-                    startIcon={<CheckCircleIcon />}
-                    onClick={handleGenerateEMC}
-                    disabled={generating || emcGenerated}
-                    sx={{ minWidth: 250 }}
-                  >
-                    {generating ? 'Generating...' : emcGenerated ? 'EMC Generated ✓' : 'Generate EMC'}
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    size="medium"
-                    startIcon={<PrintIcon />}
-                    onClick={handlePrintContract}
-                    sx={{ ml: 2 }}
-                  >
-                    Print Preview
-                  </Button>
-                </>
-              ) : (
+            {/* Land Improvements Tab */}
+            {activeTab === 2 && (
+              <Box sx={{ p: 3, textAlign: 'center' }}>
+                <Typography sx={{ color: 'text.disabled', fontSize: 16 }}>
+                  Land improvements coming soon
+                </Typography>
+              </Box>
+            )}
+          </Box>
+
+          {/* Action Buttons */}
+          {prospectId && (
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3, pt: 3, borderTop: '1px solid', borderTopColor: 'customColors.calendarBorder' }}>
+              {!emcGenerated ? (
                 <Button
                   variant="contained"
-                  startIcon={<PrintIcon />}
-                  onClick={handlePrintContract}
-                  size="large"
-                  >
-                    Review Agreement
+                  color="success"
+                  onClick={handleGenerateEMC}
+                  disabled={generating}
+                >
+                  {generating ? 'Saving...' : 'Save Build'}
                 </Button>
-              )}
-            </Box>
-          </Paper>
-        )}
-
-        {/* Step 4: Finalize Order */}
-        {selectedHome && prospectId && (
-          <Paper sx={{ p: 3, backgroundColor: 'customColors.calendarHeaderBackground' }}>
-            <Typography variant="h6" sx={{ mb: 3, color: 'text.primary', textAlign: 'center' }}>
-              Step 4: Finalize Order
-            </Typography>
-            
-            <Box sx={{ textAlign: 'center' }}>
-              {!emcGenerated ? (
-                <Typography variant="body2" sx={{ mb: 3, color: 'warning.main', fontWeight: 600 }}>
-                  Please generate the EMC first (Step 3) before finalizing.
-                </Typography>
-              ) : orderType ? (
-                <Stack spacing={2} alignItems="center">
-                  <Chip
-                    label={orderType === 'stock' ? 'Stock Pending ✓' : 'Special Order ✓'}
-                    color="success"
-                    sx={{ fontSize: 16, fontWeight: 600, py: 2 }}
-                  />
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    onClick={handleClearHome}
-                    size="small"
-                  >
-                    Clear Home & Unmark
-                  </Button>
-                </Stack>
-              ) : (
+              ) : !orderType ? (
                 <>
-                  <Typography variant="body2" sx={{ mb: 3, color: 'text.secondary' }}>
-                    Choose how to finalize this order:
-                  </Typography>
-                  
-                  <Stack direction="row" spacing={2} justifyContent="center">
-                    <Button
-                      variant="contained"
-                      color="warning"
-                      size="large"
-                      startIcon={<HomeIcon />}
-                      onClick={() => handleMarkAsPending('stock')}
-                      disabled={selectedHome.availabilityStatus === 'pending'}
-                      sx={{ 
-                        minWidth: 200,
-                        backgroundColor: '#ff9800',
-                        '&:hover': {
-                          backgroundColor: '#f57c00'
-                        }
-                      }}
-                    >
-                      Mark Stock Pending
-                    </Button>
-
-                    <Button
-                      variant="contained"
-                      color="info"
-                      size="large"
-                      startIcon={<CheckCircleIcon />}
-                      onClick={() => handleMarkAsPending('special')}
-                      disabled={selectedHome.availabilityStatus === 'pending'}
-                      sx={{ 
-                        minWidth: 200
-                      }}
-                    >
-                      Special Order
-                    </Button>
-                  </Stack>
-
-                  {selectedHome.availabilityStatus === 'pending' && (
-                    <Chip
-                      label="Home Already Pending"
-                      color="warning"
-                      sx={{ mt: 2, fontWeight: 600 }}
-                    />
-                  )}
+                  <Button variant="contained" color="warning" onClick={() => handleMarkAsPending('stock')}>
+                    Mark Stock Pending
+                  </Button>
+                  <Button variant="contained" color="info" onClick={() => handleMarkAsPending('special')}>
+                    Mark Special Order
+                  </Button>
                 </>
+              ) : (
+                <Chip
+                  label={orderType === 'stock' ? 'Stock Pending ✓' : 'Special Order ✓'}
+                  color="success"
+                  sx={{ fontSize: 14, fontWeight: 600, py: 2.5, px: 2 }}
+                />
               )}
             </Box>
-          </Paper>
-        )}
+          )}
+        </Box>
+      )}
 
-        {/* Contract Preview Dialog */}
-        <Dialog
-          open={contractDialogOpen}
-          onClose={() => setContractDialogOpen(false)}
-          maxWidth="md"
-          fullWidth
-        >
-          <DialogTitle>Print Home Selection Agreement</DialogTitle>
-          <DialogContent>
-            <Typography sx={{ mb: 2 }}>
-              This will generate an agreement showing the MSRP (Manufacturer's Suggested Retail Price) for review. You can then write in your discounted price when printing the final document.
-            </Typography>
-            <Stack spacing={1} sx={{ ml: 2 }}>
-              <Typography variant="body2">• Home details and specifications</Typography>
-              <Typography variant="body2">• Selected options</Typography>
-              <Typography variant="body2">• MSRP pricing (for reference)</Typography>
-            </Stack>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setContractDialogOpen(false)}>Cancel</Button>
-            <Button onClick={generateContract} variant="contained" startIcon={<PrintIcon />}>
-              Generate & Review Agreement
-            </Button>
-          </DialogActions>
-        </Dialog>
+      {/* Contract Preview Dialog */}
+      <Dialog
+        open={contractDialogOpen}
+        onClose={() => setContractDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Print Home Selection Agreement</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ mb: 2 }}>
+            This will generate an agreement showing the MSRP (Manufacturer's Suggested Retail Price) for review. You can then write in your discounted price when printing the final document.
+          </Typography>
+          <Stack spacing={1} sx={{ ml: 2 }}>
+            <Typography variant="body2">• Home details and specifications</Typography>
+            <Typography variant="body2">• Selected options</Typography>
+            <Typography variant="body2">• MSRP pricing (for reference)</Typography>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setContractDialogOpen(false)}>Cancel</Button>
+          <Button onClick={generateContract} variant="contained" startIcon={<PrintIcon />}>
+            Generate & Review Agreement
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-        {/* Snackbar */}
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={4000}
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-        >
-          <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-      </Box>
-    </UnifiedLayout>
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </Box>
   );
 }
 

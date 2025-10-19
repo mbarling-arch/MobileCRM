@@ -12,6 +12,10 @@ import ProspectPortal from './components/crm/ProspectPortal';
 import CustomerApplicationStandalone from './components/crm/CustomerApplicationStandalone';
 import Deals from './components/crm/Deals';
 import Projects from './components/crm/Projects';
+import ProjectPortal from './components/crm/ProjectPortal';
+import LandAsset from './components/crm/LandAsset';
+import AvailablePropertiesPublic from './components/crm/AvailablePropertiesPublic';
+import Spec from './components/crm/Spec';
 import Inventory from './components/crm/Inventory';
 import MasterPricing from './components/crm/MasterPricing';
 import Calendar from './components/crm/Calendar';
@@ -176,6 +180,30 @@ function App() {
                 }
               />
               <Route
+                path="/crm/projects/:projectId"
+                element={
+                  <PrivateRoute>
+                    <ProjectPortal />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/crm/land-asset"
+                element={
+                  <PrivateRoute>
+                    <LandAsset />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/crm/spec"
+                element={
+                  <PrivateRoute>
+                    <Spec />
+                  </PrivateRoute>
+                }
+              />
+              <Route
                 path="/crm/inventory"
                 element={
                   <PrivateRoute>
@@ -263,10 +291,14 @@ function App() {
                   </PrivateRoute>
                 }
               />
-              {/* Public Customer Application Route */}
+              {/* Public Routes */}
               <Route
                 path="/application/:prospectId"
                 element={<CustomerApplication />}
+              />
+              <Route
+                path="/crm/available-properties"
+                element={<AvailablePropertiesPublic />}
               />
               <Route path="/" element={<HomeRedirect />} />
             </Routes>

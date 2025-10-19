@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Card, CardContent, Divider, Stack, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, Tabs, Tab, Button } from '@mui/material';
 import UnifiedLayout from '../UnifiedLayout';
 import { db } from '../../firebase';
-import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { collection, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { useUser } from '../../hooks/useUser';
 import { getSourceMeta, getStatusMeta } from './LeadConstants';
 import PhoneOutlinedIcon from '@mui/icons-material/PhoneOutlined';
@@ -22,10 +22,16 @@ function Deals() {
   const currentUserEmail = userProfile?.email || userProfile?.firebaseUser?.email;
 
   useEffect(() => {
-    const col = collection(db, 'companies', companyId, 'deals');
+    const col = collection(db, 'companies', companyId, 'prospects');
     const q = query(col, orderBy('createdAt', 'desc'));
     const unsub = onSnapshot(q, snap => {
-      setDeals(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const data = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(p => {
+          const stage = p.stage || 'discovery'; // Default to discovery if no stage
+          return stage !== 'discovery'; // Only show if NOT discovery
+        });
+      setDeals(data);
     });
     return () => unsub();
   }, [companyId]);
@@ -55,7 +61,7 @@ function Deals() {
             </Tabs>
             <Divider sx={{ mb: 2 }} />
             <TableContainer>
-              <Table size="small" sx={{ '& thead th': { color: 'rgba(255,255,255,0.9)', fontWeight: 600, borderBottomColor: 'rgba(255,255,255,0.08)' }, '& tbody td': { color: 'rgba(255,255,255,0.92)', borderBottomColor: 'rgba(255,255,255,0.06)' }, '& tbody tr:hover': { backgroundColor: 'rgba(255,255,255,0.04)' } }}>
+              <Table size="small" sx={{ '& thead th': { color: 'text.secondary', fontWeight: 600, borderBottomColor: 'divider' }, '& tbody td': { color: 'text.primary', borderBottomColor: 'divider' }, '& tbody tr:hover': { backgroundColor: 'action.hover' } }}>
                 <TableHead>
                   <TableRow>
                     <TableCell>First Name</TableCell>

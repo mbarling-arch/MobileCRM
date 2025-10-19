@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { Box, Typography, Button, Paper, Accordion, AccordionSummary, AccordionDetails, List, ListItem, ListItemText, IconButton, Chip, CircularProgress } from '@mui/material';
+import { Box, Typography, Paper, Accordion, AccordionSummary, AccordionDetails, List, ListItem, ListItemText, IconButton, Chip, CircularProgress, Button } from '@mui/material';
 import { ExpandMore as ExpandMoreIcon, Download as DownloadIcon, Delete as DeleteIcon, Upload as UploadIcon } from '@mui/icons-material';
 import { collection, query, orderBy, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../../../firebase';
@@ -8,8 +8,8 @@ import AddDocumentDialog from '../AddDocumentDialog';
 const DocumentsTab = ({ prospectId, userProfile, isDeal, context }) => {
   const [documents, setDocuments] = useState([]);
   const [expandedCategories, setExpandedCategories] = useState({});
-  const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!userProfile?.companyId || !prospectId) return;

@@ -3,14 +3,27 @@ import authReducer from './slices/authSlice';
 import userReducer from './slices/userSlice';
 import prospectReducer from './slices/prospectSlice';
 import conditionsReducer from './slices/conditionsSlice';
+import landAssetReducer from './slices/landAssetSlice';
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
     user: userReducer,
     prospect: prospectReducer,
-    conditions: conditionsReducer
-  }
+    conditions: conditionsReducer,
+    landAsset: landAssetReducer
+  },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        // Ignore these paths in the state
+        ignoredPaths: ['landAsset.assets'],
+        // Ignore these action types
+        ignoredActionPaths: ['payload.createdAt', 'payload.updatedAt'],
+        // Ignore these field paths in all actions
+        ignoredActions: ['landAsset/setAssets', 'landAsset/update/fulfilled']
+      }
+    })
 });
 
 export const setupStore = () => store;

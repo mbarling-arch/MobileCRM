@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FormTextField, FormSelect } from '../FormField';
 import BaseDrawer, { DrawerActions } from '../BaseDrawer';
-import { collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs, where, doc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../../firebase';
 import { useUser } from '../../hooks/useUser';
@@ -18,29 +18,58 @@ function AddDepositDrawer({ open, onClose, prospectId, buyerInfo, onConvertToDea
 
   const [nextReceiptNumber, setNextReceiptNumber] = useState(100000);
 
-  // Generate next receipt number when drawer opens
+  // Generate next receipt number when drawer opens - LOCATION WIDE
   useEffect(() => {
-    if (open && userProfile?.companyId) {
+    if (open && userProfile?.companyId && userProfile?.locationId) {
       const generateNextReceiptNumber = async () => {
         try {
-          // Use correct collection based on isDeal flag
-          const collectionName = isDeal ? 'deals' : 'prospects';
+          let highestReceiptNumber = 100000;
 
-          // Get the highest receipt number from existing deposits
-          const depositsQuery = query(
-            collection(db, 'companies', userProfile.companyId, collectionName, prospectId, 'deposits'),
-            orderBy('receiptNumber', 'desc'),
-            limit(1)
+          // Query ALL prospects for this location
+          const prospectsSnapshot = await getDocs(
+            query(
+              collection(db, 'companies', userProfile.companyId, 'prospects'),
+              where('locationId', '==', userProfile.locationId)
+            )
           );
-          const snapshot = await getDocs(depositsQuery);
 
-          if (!snapshot.empty) {
-            const highestReceipt = snapshot.docs[0].data().receiptNumber;
-            const nextNumber = Math.max(parseInt(highestReceipt) + 1, 100000);
-            setNextReceiptNumber(nextNumber);
-          } else {
-            setNextReceiptNumber(100000);
+          // Check deposits in all prospects
+          for (const prospectDoc of prospectsSnapshot.docs) {
+            const depositsSnapshot = await getDocs(
+              collection(db, 'companies', userProfile.companyId, 'prospects', prospectDoc.id, 'deposits')
+            );
+            
+            depositsSnapshot.forEach(depositDoc => {
+              const receiptNum = parseInt(depositDoc.data().receiptNumber);
+              if (receiptNum && receiptNum >= highestReceiptNumber) {
+                highestReceiptNumber = receiptNum + 1;
+              }
+            });
           }
+
+          // Query ALL deals for this location
+          const dealsSnapshot = await getDocs(
+            query(
+              collection(db, 'companies', userProfile.companyId, 'deals'),
+              where('locationId', '==', userProfile.locationId)
+            )
+          );
+
+          // Check deposits in all deals
+          for (const dealDoc of dealsSnapshot.docs) {
+            const depositsSnapshot = await getDocs(
+              collection(db, 'companies', userProfile.companyId, 'deals', dealDoc.id, 'deposits')
+            );
+            
+            depositsSnapshot.forEach(depositDoc => {
+              const receiptNum = parseInt(depositDoc.data().receiptNumber);
+              if (receiptNum && receiptNum >= highestReceiptNumber) {
+                highestReceiptNumber = receiptNum + 1;
+              }
+            });
+          }
+
+          setNextReceiptNumber(highestReceiptNumber);
         } catch (error) {
           console.error('Error generating receipt number:', error);
           setNextReceiptNumber(100000);
@@ -49,7 +78,7 @@ function AddDepositDrawer({ open, onClose, prospectId, buyerInfo, onConvertToDea
 
       generateNextReceiptNumber();
     }
-  }, [open, userProfile?.companyId, prospectId, isDeal]);
+  }, [open, userProfile?.companyId, userProfile?.locationId]);
 
   const isValid = form.amount && form.type;
 
@@ -115,11 +144,9 @@ function AddDepositDrawer({ open, onClose, prospectId, buyerInfo, onConvertToDea
       const pdfDoc = generateReceiptPDF(depositData, buyerInfo);
       const pdfBlob = pdfDoc.output('blob');
 
-      // Determine collection name based on isDeal
-      const collectionName = isDeal ? 'deals' : 'prospects';
-
+      // Always use prospects collection (deals are just prospects with stage !== 'discovery')
       // Upload PDF to Firebase Storage
-      const pdfRef = ref(storage, `companies/${userProfile.companyId}/${collectionName}/${prospectId}/documents/receipt_${receiptNumber}.pdf`);
+      const pdfRef = ref(storage, `companies/${userProfile.companyId}/prospects/${prospectId}/documents/receipt_${receiptNumber}.pdf`);
       await uploadBytes(pdfRef, pdfBlob);
       const pdfUrl = await getDownloadURL(pdfRef);
 
@@ -127,7 +154,7 @@ function AddDepositDrawer({ open, onClose, prospectId, buyerInfo, onConvertToDea
       depositData.pdfUrl = pdfUrl;
 
       // Save deposit to Firestore
-      await addDoc(collection(db, 'companies', userProfile.companyId, collectionName, prospectId, 'deposits'), depositData);
+      await addDoc(collection(db, 'companies', userProfile.companyId, 'prospects', prospectId, 'deposits'), depositData);
 
       // Save PDF to Customer Documents
       const documentData = {
@@ -141,15 +168,16 @@ function AddDepositDrawer({ open, onClose, prospectId, buyerInfo, onConvertToDea
         description: `Deposit receipt for $${depositAmount.toLocaleString()} - ${form.type}`
       };
 
-      await addDoc(collection(db, 'companies', userProfile.companyId, collectionName, prospectId, 'documents'), documentData);
+      await addDoc(collection(db, 'companies', userProfile.companyId, 'prospects', prospectId, 'documents'), documentData);
 
-      // Automatically convert prospect to deal after deposit is recorded
+      // Update stage to pre-approval when taking a deposit
       try {
-        if (onConvertToDeal) {
-          await onConvertToDeal();
-        }
+        const prospectRef = doc(db, 'companies', userProfile.companyId, 'prospects', prospectId);
+        await updateDoc(prospectRef, {
+          stage: 'pre-approval'
+        });
       } catch (error) {
-        console.error('Error triggering automatic conversion:', error);
+        console.error('Error updating stage:', error);
       }
 
       // Reset form and close

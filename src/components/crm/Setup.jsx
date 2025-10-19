@@ -850,16 +850,16 @@ function LocationsTable({ locations, onOpenLocation, onEdit, onDelete }) {
                     size="small"
         sx={{
           '& thead th': {
-            color: 'rgba(255,255,255,0.9)',
+            color: 'text.secondary',
             fontWeight: 600,
-            borderBottomColor: 'rgba(255,255,255,0.08)'
+            borderBottomColor: 'divider'
           },
           '& tbody td': {
-            color: 'rgba(255,255,255,0.92)',
-            borderBottomColor: 'rgba(255,255,255,0.06)'
+            color: 'text.primary',
+            borderBottomColor: 'divider'
           },
           '& tbody tr:hover': {
-            backgroundColor: 'rgba(255,255,255,0.04)'
+            backgroundColor: 'action.hover'
           }
         }}
       >
@@ -952,16 +952,16 @@ function UsersTable({ users, locations, onResetPassword, onDelete }) {
         size="small"
         sx={{
           '& thead th': {
-            color: 'rgba(255,255,255,0.9)',
+            color: 'text.secondary',
             fontWeight: 600,
-            borderBottomColor: 'rgba(255,255,255,0.08)'
+            borderBottomColor: 'divider'
           },
           '& tbody td': {
-            color: 'rgba(255,255,255,0.92)',
-            borderBottomColor: 'rgba(255,255,255,0.06)'
+            color: 'text.primary',
+            borderBottomColor: 'divider'
           },
           '& tbody tr:hover': {
-            backgroundColor: 'rgba(255,255,255,0.04)'
+            backgroundColor: 'action.hover'
           }
         }}
       >
@@ -1077,16 +1077,16 @@ function RolesTable({ roles, onEdit, onDelete }) {
         size="small"
         sx={{
           '& thead th': {
-            color: 'rgba(255,255,255,0.9)',
+            color: 'text.secondary',
             fontWeight: 600,
-            borderBottomColor: 'rgba(255,255,255,0.08)'
+            borderBottomColor: 'divider'
           },
           '& tbody td': {
-            color: 'rgba(255,255,255,0.92)',
-            borderBottomColor: 'rgba(255,255,255,0.06)'
+            color: 'text.primary',
+            borderBottomColor: 'divider'
           },
           '& tbody tr:hover': {
-            backgroundColor: 'rgba(255,255,255,0.04)'
+            backgroundColor: 'action.hover'
           }
         }}
       >

@@ -1,7 +1,8 @@
 import React from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, useTheme } from '@mui/material';
 
 function GlobalDataTable({ title, columns, rows, actions, dense = true, variant = 'embedded', square = false }) {
+  const theme = useTheme();
   const activeRows = rows || [];
   const spacing = dense ? 6 : 12;
   const cellPad = dense ? 10 : 16;
@@ -27,10 +28,10 @@ function GlobalDataTable({ title, columns, rows, actions, dense = true, variant 
       <Box sx={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: isEmbedded ? '0 0' : `0 ${spacing}px` }}>
           <thead>
-            <tr style={{ borderBottom: '2px solid', borderBottomColor: 'customColors.tableHeaderBorder' }}>
+            <tr style={{ borderBottom: `2px solid ${theme.palette.divider}` }}>
               {columns.map((col) => (
                 <th key={col.key} style={{
-                  color: 'text.secondary',
+                  color: theme.palette.text.secondary,
                   fontWeight: 700,
                   textTransform: 'none',
                   fontSize: headerFs,
@@ -45,11 +46,11 @@ function GlobalDataTable({ title, columns, rows, actions, dense = true, variant 
           <tbody>
             {activeRows.map((row, idx) => (
               <tr key={row.id || idx} style={{
-                background: isEmbedded ? 'transparent' : 'customColors.tableRowBackground',
-                color: 'text.primary',
+                background: isEmbedded ? 'transparent' : theme.customColors.tableRowBackground,
+                color: theme.palette.text.primary,
                 boxShadow: isEmbedded ? 'none' : '0 4px 12px rgba(0,0,0,0.35)',
                 border: isEmbedded ? 'none' : '1px solid',
-                borderColor: isEmbedded ? 'transparent' : 'customColors.tableBorder'
+                borderColor: isEmbedded ? 'transparent' : theme.customColors.tableBorder
               }}>
                 {columns.map((col, i) => (
                   <td key={col.key} style={{
@@ -59,8 +60,7 @@ function GlobalDataTable({ title, columns, rows, actions, dense = true, variant 
                     borderBottomLeftRadius: !isEmbedded && i === 0 ? rowRadius : 0,
                     borderTopRightRadius: !isEmbedded && i === columns.length - 1 ? rowRadius : 0,
                     borderBottomRightRadius: !isEmbedded && i === columns.length - 1 ? rowRadius : 0,
-                    borderBottom: isEmbedded && idx < activeRows.length - 1 ? '1px solid' : 'none',
-                    borderBottomColor: isEmbedded ? 'customColors.tableBorder' : 'transparent'
+                    borderBottom: isEmbedded && idx < activeRows.length - 1 ? `1px solid ${theme.customColors.tableBorder}` : 'none'
                   }}>
                     {col.render ? col.render(row[col.key], row) : row[col.key]}
                   </td>
@@ -75,4 +75,6 @@ function GlobalDataTable({ title, columns, rows, actions, dense = true, variant 
 }
 
 export default GlobalDataTable;
+
+
 

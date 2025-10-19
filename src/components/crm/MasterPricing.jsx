@@ -10,9 +10,14 @@ import {
   Tab,
   Snackbar,
   Alert,
-  Chip,
 } from '@mui/material';
-import { Save as SaveIcon, LocationOn as LocationIcon } from '@mui/icons-material';
+import { 
+  Save as SaveIcon, 
+  Home as HomeIcon,
+  HomeWork as HomeWorkIcon,
+  Villa as VillaIcon,
+  Cottage as CottageIcon
+} from '@mui/icons-material';
 import UnifiedLayout from '../UnifiedLayout';
 import { db } from '../../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -25,49 +30,48 @@ function MasterPricing() {
   const [activeTypeTab, setActiveTypeTab] = useState('single');
   const [pricing, setPricing] = useState({
     single: {
-      basePrice: 0,
       deliverySetup: 0,
       ac: 0,
       steps: 0,
       trimOut: 0,
       skirting: 0,
-      pad: 0
+      pad: 0,
+      placementEquipment: 0,
+      perimeterBlocking: 0,
+      warranty: 0
     },
     double: {
-      basePrice: 0,
       deliverySetup: 0,
       ac: 0,
       steps: 0,
       trimOut: 0,
       skirting: 0,
-      pad: 0
+      pad: 0,
+      placementEquipment: 0,
+      perimeterBlocking: 0,
+      warranty: 0
     },
     triple: {
-      basePrice: 0,
       deliverySetup: 0,
       ac: 0,
       steps: 0,
       trimOut: 0,
       skirting: 0,
-      pad: 0
+      pad: 0,
+      placementEquipment: 0,
+      perimeterBlocking: 0,
+      warranty: 0
     },
     tiny: {
-      basePrice: 0,
       deliverySetup: 0,
       ac: 0,
       steps: 0,
       trimOut: 0,
       skirting: 0,
-      pad: 0
-    },
-    used: {
-      basePrice: 0,
-      deliverySetup: 0,
-      ac: 0,
-      steps: 0,
-      trimOut: 0,
-      skirting: 0,
-      pad: 0
+      pad: 0,
+      placementEquipment: 0,
+      perimeterBlocking: 0,
+      warranty: 0
     }
   });
   const [saving, setSaving] = useState(false);
@@ -98,13 +102,15 @@ function MasterPricing() {
       const docSnap = await getDoc(docRef);
 
       const defaultPricing = {
-        basePrice: 0,
         deliverySetup: 0,
         ac: 0,
         steps: 0,
         trimOut: 0,
         skirting: 0,
-        pad: 0
+        pad: 0,
+        placementEquipment: 0,
+        perimeterBlocking: 0,
+        warranty: 0
       };
 
       if (docSnap.exists()) {
@@ -113,8 +119,7 @@ function MasterPricing() {
           single: data.single || defaultPricing,
           double: data.double || defaultPricing,
           triple: data.triple || defaultPricing,
-          tiny: data.tiny || defaultPricing,
-          used: data.used || defaultPricing
+          tiny: data.tiny || defaultPricing
         });
       } else {
         // Reset to defaults if no pricing exists for this location
@@ -122,8 +127,7 @@ function MasterPricing() {
           single: { ...defaultPricing },
           double: { ...defaultPricing },
           triple: { ...defaultPricing },
-          tiny: { ...defaultPricing },
-          used: { ...defaultPricing }
+          tiny: { ...defaultPricing }
         });
       }
     } catch (error) {
@@ -163,13 +167,15 @@ function MasterPricing() {
   };
 
   const pricingItems = [
-    { key: 'basePrice', label: 'Base Home Price' },
     { key: 'deliverySetup', label: 'Delivery & Setup' },
+    { key: 'placementEquipment', label: 'Placement Equipment' },
     { key: 'ac', label: 'A/C Installation' },
     { key: 'steps', label: 'Steps' },
     { key: 'trimOut', label: 'Trim Out' },
     { key: 'skirting', label: 'Skirting' },
-    { key: 'pad', label: 'Pad/Site Prep' }
+    { key: 'perimeterBlocking', label: 'Perimeter Blocking' },
+    { key: 'pad', label: 'Pad/Site Prep' },
+    { key: 'warranty', label: 'Warranty' }
   ];
 
   const calculateTotal = (pricingData) => {
@@ -177,102 +183,201 @@ function MasterPricing() {
     return total.toFixed(2);
   };
 
+  const homeTypeCards = [
+    {
+      label: 'Single Wide',
+      icon: HomeIcon,
+      color: '#3b82f6',
+      bgGradient: 'linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.05) 100%)',
+      tab: 'single'
+    },
+    {
+      label: 'Double Wide',
+      icon: HomeWorkIcon,
+      color: '#10b981',
+      bgGradient: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.05) 100%)',
+      tab: 'double'
+    },
+    {
+      label: 'Triple Wide',
+      icon: VillaIcon,
+      color: '#f59e0b',
+      bgGradient: 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(245, 158, 11, 0.05) 100%)',
+      tab: 'triple'
+    },
+    {
+      label: 'Tiny Home',
+      icon: CottageIcon,
+      color: '#8b5cf6',
+      bgGradient: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(139, 92, 246, 0.05) 100%)',
+      tab: 'tiny'
+    }
+  ];
+
   return (
     <UnifiedLayout mode="crm">
-      <Box sx={{ width: '100%' }}>
-        {/* Header */}
-        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-          <Typography sx={{ color: 'text.primary', fontWeight: 700, fontSize: 24 }}>
-            Master Pricing
-          </Typography>
-          <Button
-            variant="contained"
-            startIcon={<SaveIcon />}
-            onClick={handleSave}
-            disabled={saving || !selectedLocationId}
-            color="success"
-          >
-            {saving ? 'Saving...' : 'Save Pricing'}
-          </Button>
-        </Stack>
-
+      <Box sx={{ p: 3, width: '100%' }}>
         {/* Location Tabs */}
         {locations.length > 0 && (
-          <Paper sx={{ mb: 3, backgroundColor: 'customColors.calendarHeaderBackground' }}>
-            <Tabs
-              value={selectedLocationId}
-              onChange={(e, newValue) => setSelectedLocationId(newValue)}
-              sx={{
-                '& .MuiTab-root': { color: 'text.secondary' },
-                '& .MuiTab-root.Mui-selected': { color: 'text.primary' },
-                '& .MuiTabs-indicator': { backgroundColor: 'primary.main' }
-              }}
-            >
-              {locations.map((location) => (
-                <Tab 
-                  key={location.id} 
-                  label={
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <LocationIcon sx={{ fontSize: 18 }} />
-                      <span>{location.name}</span>
-                      {location.id === userProfile?.locationId && (
-                        <Chip label="Your Location" size="small" color="primary" sx={{ height: 20 }} />
-                      )}
-                    </Stack>
+          <Box sx={{ mb: 3, borderBottom: '2px solid', borderColor: 'divider' }}>
+            <Stack direction="row" alignItems="center" justifyContent="space-between">
+              <Tabs 
+                value={selectedLocationId} 
+                onChange={(e, newValue) => setSelectedLocationId(newValue)} 
+                textColor="primary" 
+                indicatorColor="primary" 
+                sx={{ 
+                  '& .MuiTab-root': { 
+                    fontWeight: 700, 
+                    fontSize: 16, 
+                    px: 4 
+                  }, 
+                  '& .MuiTabs-indicator': { 
+                    height: 4 
                   } 
-                  value={location.id} 
-                />
-              ))}
-            </Tabs>
-          </Paper>
+                }}
+              >
+                {locations.map((location) => (
+                  <Tab 
+                    key={location.id} 
+                    label={location.name}
+                    value={location.id} 
+                  />
+                ))}
+              </Tabs>
+              <Button
+                variant="contained"
+                startIcon={<SaveIcon />}
+                onClick={handleSave}
+                disabled={saving || !selectedLocationId}
+                color="success"
+                sx={{ mb: 1 }}
+              >
+                {saving ? 'Saving...' : 'Save Pricing'}
+              </Button>
+            </Stack>
+          </Box>
         )}
 
-        {/* Home Type Tabs and Pricing Card */}
-        <Paper sx={{ mb: 3, backgroundColor: 'customColors.calendarHeaderBackground' }}>
-          <Tabs
-            value={activeTypeTab}
-            onChange={(e, newValue) => setActiveTypeTab(newValue)}
-            sx={{
-              '& .MuiTab-root': { color: 'text.secondary' },
-              '& .MuiTab-root.Mui-selected': { color: 'text.primary' },
-              '& .MuiTabs-indicator': { backgroundColor: 'primary.main' }
-            }}
-          >
-            <Tab label="Single-Wide" value="single" />
-            <Tab label="Double-Wide" value="double" />
-            <Tab label="Triple-Wide" value="triple" />
-            <Tab label="Tiny Home" value="tiny" />
-            <Tab label="Used" value="used" />
-          </Tabs>
-        </Paper>
+        {/* Home Type Cards */}
+        <Box sx={{ display: 'flex', gap: 3, mb: 4 }}>
+          {homeTypeCards.map((card) => {
+            const Icon = card.icon;
+            const isActive = activeTypeTab === card.tab;
+            
+            return (
+              <Paper
+                key={card.tab}
+                onClick={() => setActiveTypeTab(card.tab)}
+                sx={{
+                  flex: 1,
+                  p: 4,
+                  cursor: 'pointer',
+                  background: isActive ? card.bgGradient : 'customColors.cardBackground',
+                  border: '2px solid',
+                  borderColor: isActive ? card.color : 'rgba(255,255,255,0.08)',
+                  borderRadius: 3,
+                  transition: 'all 0.3s ease',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  boxShadow: isActive ? `0 8px 32px ${card.color}40` : '0 4px 12px rgba(0,0,0,0.15)',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    borderColor: card.color,
+                    boxShadow: `0 12px 40px ${card.color}50`
+                  }
+                }}
+              >
+                <Stack spacing={2}>
+                  <Stack direction="row" alignItems="center" justifyContent="space-between">
+                    <Typography 
+                      sx={{ 
+                        fontSize: 14, 
+                        fontWeight: 600, 
+                        color: 'text.secondary',
+                        textTransform: 'uppercase',
+                        letterSpacing: 1
+                      }}
+                    >
+                      {card.label}
+                    </Typography>
+                    <Box
+                      sx={{
+                        width: 64,
+                        height: 64,
+                        borderRadius: 2.5,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        backgroundColor: `${card.color}20`,
+                        border: `2px solid ${card.color}60`
+                      }}
+                    >
+                      <Icon sx={{ fontSize: 36, color: card.color }} />
+                    </Box>
+                  </Stack>
+                  <Typography 
+                    sx={{ 
+                      fontSize: 20, 
+                      fontWeight: 700, 
+                      color: isActive ? card.color : 'text.primary',
+                      lineHeight: 1,
+                      mt: 1
+                    }}
+                  >
+                    ${calculateTotal(pricing[card.tab])}
+                  </Typography>
+                </Stack>
+              </Paper>
+            );
+          })}
+        </Box>
 
-        {/* Pricing Card */}
-        <Paper sx={{ p: 3, backgroundColor: 'customColors.calendarHeaderBackground', border: '1px solid', borderColor: 'customColors.calendarBorder' }}>
-          <Typography variant="h6" sx={{ mb: 3, color: 'text.primary', fontWeight: 600, textAlign: 'center' }}>
-            {activeTypeTab === 'single' && 'Single-Wide Pricing'}
-            {activeTypeTab === 'double' && 'Double-Wide Pricing'}
-            {activeTypeTab === 'triple' && 'Triple-Wide Pricing'}
-            {activeTypeTab === 'tiny' && 'Tiny Home Pricing'}
-            {activeTypeTab === 'used' && 'Used Home Pricing'}
-          </Typography>
-          <Stack spacing={2}>
-            {pricingItems.map((item) => (
-              <Box key={item.key} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pb: 1, borderBottom: '1px solid', borderColor: 'customColors.calendarBorder' }}>
-                <Typography sx={{ color: 'text.primary', fontWeight: 500, flex: 1 }}>
-                  {item.label}
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography sx={{ color: 'text.secondary', fontSize: 14 }}>$</Typography>
+        {/* Pricing Form */}
+        <Paper sx={{ backgroundColor: 'customColors.cardBackground', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 6px 18px rgba(0,0,0,0.35)' }}>
+          <Box sx={{ p: 3 }}>
+            <Stack spacing={1.5}>
+              {pricingItems.map((item, index) => (
+                <Box 
+                  key={item.key}
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr auto',
+                    alignItems: 'center',
+                    gap: 3,
+                    py: 1.5,
+                    px: 2,
+                    borderRadius: 1.5,
+                    backgroundColor: index % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
+                    '&:hover': {
+                      backgroundColor: 'rgba(255,255,255,0.05)'
+                    }
+                  }}
+                >
+                  <Typography sx={{ 
+                    color: 'text.primary', 
+                    fontWeight: 500,
+                    fontSize: 14
+                  }}>
+                    {item.label}
+                  </Typography>
                   <TextField
                     type="number"
-                    size="small"
                     value={pricing[activeTypeTab][item.key]}
                     onChange={(e) => updatePricing(activeTypeTab, item.key, e.target.value)}
+                    InputProps={{
+                      startAdornment: <Typography sx={{ color: 'text.secondary', mr: 0.5, fontSize: 14 }}>$</Typography>,
+                    }}
                     sx={{
-                      width: 110,
+                      width: 150,
                       '& .MuiInputBase-root': {
                         backgroundColor: 'background.paper',
-                        color: 'text.primary'
+                        borderRadius: 1.5,
+                        fontSize: 14,
+                        fontWeight: 600
+                      },
+                      '& .MuiInputBase-input': {
+                        py: 1
                       },
                       '& input::-webkit-outer-spin-button, & input::-webkit-inner-spin-button': {
                         display: 'none'
@@ -280,39 +385,52 @@ function MasterPricing() {
                     }}
                   />
                 </Box>
+              ))}
+              
+              {/* Total */}
+              <Box 
+                sx={{ 
+                  display: 'grid',
+                  gridTemplateColumns: '1fr auto',
+                  alignItems: 'center',
+                  gap: 3,
+                  pt: 2,
+                  mt: 2,
+                  borderTop: '3px solid',
+                  borderColor: 'primary.main'
+                }}
+              >
+                <Typography sx={{ 
+                  color: 'text.primary', 
+                  fontWeight: 700, 
+                  fontSize: 18,
+                  textTransform: 'uppercase',
+                  letterSpacing: 1
+                }}>
+                  Total MSRP
+                </Typography>
+                <Box
+                  sx={{
+                    px: 3,
+                    py: 1.5,
+                    backgroundColor: 'success.main',
+                    borderRadius: 2,
+                    minWidth: 150,
+                    textAlign: 'center'
+                  }}
+                >
+                  <Typography sx={{ 
+                    color: '#ffffff', 
+                    fontWeight: 800, 
+                    fontSize: 24,
+                    letterSpacing: 0.5
+                  }}>
+                    ${calculateTotal(pricing[activeTypeTab])}
+                  </Typography>
+                </Box>
               </Box>
-            ))}
-            {/* Total */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pt: 2, mt: 2, borderTop: '2px solid', borderColor: 'primary.main' }}>
-              <Typography sx={{ color: 'text.primary', fontWeight: 700, fontSize: 18 }}>
-                TOTAL MSRP
-              </Typography>
-              <Typography sx={{ color: 'success.main', fontWeight: 700, fontSize: 22 }}>
-                ${calculateTotal(pricing[activeTypeTab])}
-              </Typography>
-            </Box>
-          </Stack>
-        </Paper>
-
-        {/* Instructions */}
-        <Paper sx={{ mt: 3, p: 3, backgroundColor: 'customColors.tableRowBackground', border: '1px solid', borderColor: 'customColors.calendarBorder' }}>
-          <Typography variant="h6" sx={{ color: 'text.primary', mb: 2, fontWeight: 600 }}>
-            How Master Pricing Works
-          </Typography>
-          <Stack spacing={1.5}>
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              • Set your base home price and add-on options pricing for each location
-            </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              • Each location maintains separate pricing for Single-Wide, Double-Wide, Triple-Wide, Tiny, and Used homes
-            </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              • Pricing set here is automatically applied when creating inventory (Invoice + Master Pricing + Markup %)
-            </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              • The total MSRP is calculated by adding all the pricing items together
-            </Typography>
-          </Stack>
+            </Stack>
+          </Box>
         </Paper>
 
         {/* Snackbar */}

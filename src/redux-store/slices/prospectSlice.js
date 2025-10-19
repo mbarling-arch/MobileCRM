@@ -31,8 +31,8 @@ export const loadProspect = createAsyncThunk(
         return null;
       }
 
-      const collectionName = buildCollectionPath(userProfile.companyId, isDeal);
-      const documentRef = doc(db, 'companies', userProfile.companyId, collectionName, prospectId);
+      // Always use prospects collection
+      const documentRef = doc(db, 'companies', userProfile.companyId, 'prospects', prospectId);
       const snapshot = await getDoc(documentRef);
 
       if (!snapshot.exists()) {
@@ -77,8 +77,8 @@ export const saveBuyerInfo = createAsyncThunk(
         throw new Error('Missing company or prospect ID');
       }
 
-      const collectionName = buildCollectionPath(userProfile.companyId, isDeal);
-      const ref = doc(db, 'companies', userProfile.companyId, collectionName, prospectId);
+      // Always use prospects collection
+      const ref = doc(db, 'companies', userProfile.companyId, 'prospects', prospectId);
       await updateDoc(ref, { buyerInfo });
 
       return { prospectId, buyerInfo, isDeal };
@@ -99,8 +99,8 @@ export const saveCoBuyerInfo = createAsyncThunk(
         throw new Error('Missing company or prospect ID');
       }
 
-      const collectionName = buildCollectionPath(userProfile.companyId, isDeal);
-      const ref = doc(db, 'companies', userProfile.companyId, collectionName, prospectId);
+      // Always use prospects collection
+      const ref = doc(db, 'companies', userProfile.companyId, 'prospects', prospectId);
       await updateDoc(ref, { coBuyerInfo });
 
       return { prospectId, coBuyerInfo, isDeal };
@@ -121,8 +121,8 @@ export const saveFinancingData = createAsyncThunk(
         throw new Error('Missing company or prospect ID');
       }
 
-      const collectionName = buildCollectionPath(userProfile.companyId, isDeal);
-      const ref = doc(db, 'companies', userProfile.companyId, collectionName, prospectId);
+      // Always use prospects collection
+      const ref = doc(db, 'companies', userProfile.companyId, 'prospects', prospectId);
       await updateDoc(ref, {
         financing: {
           ...financing,
@@ -148,8 +148,8 @@ export const saveCreditSnapshot = createAsyncThunk(
         throw new Error('Missing company or prospect ID');
       }
 
-      const collectionName = buildCollectionPath(userProfile.companyId, isDeal);
-      const ref = doc(db, 'companies', userProfile.companyId, collectionName, prospectId);
+      // Always use prospects collection
+      const ref = doc(db, 'companies', userProfile.companyId, 'prospects', prospectId);
       await updateDoc(ref, {
         creditSnapshot,
         updatedAt: serverTimestamp()
@@ -162,68 +162,7 @@ export const saveCreditSnapshot = createAsyncThunk(
   }
 );
 
-export const convertProspectToDeal = createAsyncThunk(
-  'prospect/convertToDeal',
-  async ({ prospectId }, { getState, rejectWithValue }) => {
-    try {
-      const state = getState();
-      const userProfile = selectUserProfile(state);
-
-      if (!userProfile?.companyId || !prospectId) {
-        throw new Error('Missing company or prospect ID');
-      }
-
-      const companyId = userProfile.companyId;
-      const prospectRef = doc(db, 'companies', companyId, 'prospects', prospectId);
-      const prospectSnapshot = await getDoc(prospectRef);
-
-      if (!prospectSnapshot.exists()) {
-        throw new Error('Prospect not found');
-      }
-
-      const prospectData = prospectSnapshot.data();
-
-      const depositsRef = collection(db, 'companies', companyId, 'prospects', prospectId, 'deposits');
-      const depositsSnapshot = await getDocs(depositsRef);
-      const depositPromises = depositsSnapshot.docs.map((depositDoc) => {
-        const depositData = sanitizeFirestoreData(depositDoc.data());
-        const newDepositRef = doc(collection(db, 'companies', companyId, 'deals', prospectId, 'deposits'), depositDoc.id);
-        return setDoc(newDepositRef, depositData);
-      });
-
-      const documentsRef = collection(db, 'companies', companyId, 'prospects', prospectId, 'documents');
-      const documentsSnapshot = await getDocs(documentsRef);
-      const documentPromises = documentsSnapshot.docs.map((documentDoc) => {
-        const documentData = sanitizeFirestoreData(documentDoc.data());
-        const newDocumentRef = doc(collection(db, 'companies', companyId, 'deals', prospectId, 'documents'), documentDoc.id);
-        return setDoc(newDocumentRef, documentData);
-      });
-
-      await Promise.all([...depositPromises, ...documentPromises]);
-
-      const dealData = {
-        ...sanitizeFirestoreData(prospectData),
-        convertedFromProspect: true,
-        convertedAt: serverTimestamp(),
-        convertedBy: userProfile.email || userProfile.firebaseUser?.email,
-        status: 'active',
-        stage: 'application',
-        buyerInfo: prospectData.buyerInfo || null,
-        coBuyerInfo: prospectData.coBuyerInfo || null,
-        financing: prospectData.financing || {},
-        creditSnapshot: prospectData.creditSnapshot || null
-      };
-
-      const dealRef = doc(db, 'companies', companyId, 'deals', prospectId);
-      await setDoc(dealRef, dealData);
-      await deleteDoc(prospectRef);
-
-      return { prospectId, dealData };
-    } catch (error) {
-      return rejectWithValue(error.message || 'Failed to convert prospect');
-    }
-  }
-);
+// Conversion is no longer needed - stage field determines if prospect shows in Deals list
 
 const initialState = prospectAdapter.getInitialState({
   status: 'idle',
@@ -237,6 +176,9 @@ const prospectSlice = createSlice({
   name: 'prospect',
   initialState,
   reducers: {
+    updateProspect: (state, action) => {
+      prospectAdapter.upsertOne(state, action.payload);
+    },
     resetProspectState: () => initialState,
     setBuyerInfo(state, action) {
       const { prospectId, buyerInfo } = action.payload;
@@ -335,15 +277,6 @@ const prospectSlice = createSlice({
           changes: { creditSnapshot }
         });
       })
-      .addCase(convertProspectToDeal.fulfilled, (state, action) => {
-        const { prospectId, dealData } = action.payload;
-        prospectAdapter.removeOne(state, prospectId);
-        prospectAdapter.upsertOne(state, {
-          id: prospectId,
-          ...dealData,
-          isDeal: true
-        });
-      });
   }
 });
 
@@ -361,6 +294,7 @@ export const selectDepositsStatus = (state, prospectId) => state.prospect.deposi
 export const selectDepositsError = (state, prospectId) => state.prospect.depositsError[prospectId] || null;
 
 export const {
+  updateProspect,
   resetProspectState,
   setBuyerInfo,
   setCoBuyerInfo,

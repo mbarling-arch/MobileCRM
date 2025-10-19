@@ -15,3 +15,5 @@ const ClosingTab = ({ prospectId }) => {
 };
 
 export default ClosingTab;
+
+

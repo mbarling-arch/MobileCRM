@@ -6,7 +6,7 @@ const CalculatorTab = ({ prospectId, userProfile, context }) => {
     <FinancialCalculator
       companyId={userProfile?.companyId}
       prospectId={prospectId}
-      initial={null}
+      initial={context?.prospect?.calculator || null}
       context={context}
     />
   );

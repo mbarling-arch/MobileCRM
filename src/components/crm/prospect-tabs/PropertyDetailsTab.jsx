@@ -5,31 +5,30 @@ import { doc, collection, query, where, onSnapshot, addDoc, serverTimestamp, del
 import { db, storage } from '../../../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
-const FinancingTab = ({ prospectId, userProfile, context, isDeal }) => {
+const PropertyDetailsTab = ({ prospectId, userProfile, context, isDeal }) => {
   const [documents, setDocuments] = useState([]);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedDocType, setSelectedDocType] = useState('');
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef();
 
-  const financingDocuments = [
-    'Budget',
-    'Credit Report',
-    'Application',
-    'Income Conditions',
-    'Signed Bank Disclosures',
-    'Calculation Worksheet',
-    'Lender Pre-Approval',
-    'Lender Approval'
+  const propertyDocuments = [
+    'Survey',
+    'Site Inspection',
+    'Written Bids',
+    'Contract/Deed',
+    'Park Lease/PPOA',
+    'Title Commitment',
+    'Appraisal'
   ];
 
-  // Load financing documents
+  // Load property documents
   useEffect(() => {
     if (!userProfile?.companyId || !prospectId) return;
 
     const collectionName = isDeal ? 'deals' : 'prospects';
     const docsRef = collection(db, 'companies', userProfile.companyId, collectionName, prospectId, 'documents');
-    const q = query(docsRef, where('category', '==', 'Financing Documents'));
+    const q = query(docsRef, where('category', '==', 'Property Documents'));
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -68,7 +67,7 @@ const FinancingTab = ({ prospectId, userProfile, context, isDeal }) => {
 
       const docData = {
         name: selectedDocType,
-        category: 'Financing Documents',
+        category: 'Property Documents',
         url: downloadURL,
         type: file.type,
         size: file.size,
@@ -113,10 +112,10 @@ const FinancingTab = ({ prospectId, userProfile, context, isDeal }) => {
           </Typography>
         </Paper>
 
-        {/* Right Container - 25% - Financing Documents */}
+        {/* Right Container - 25% - Property Documents */}
         <Paper sx={{ flex: '0 0 25%', p: 2, backgroundColor: 'customColors.calendarHeaderBackground', border: '1px solid', borderColor: 'customColors.calendarBorder' }}>
           <List sx={{ py: 0 }}>
-            {financingDocuments.map((docType) => {
+            {propertyDocuments.map((docType) => {
               const existingDoc = getDocumentByType(docType);
               return (
                 <ListItem
@@ -203,9 +202,9 @@ const FinancingTab = ({ prospectId, userProfile, context, isDeal }) => {
               onChange={handleFileUpload}
               accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
               style={{ display: 'none' }}
-              id="financing-doc-upload"
+              id="property-doc-upload"
             />
-            <label htmlFor="financing-doc-upload">
+            <label htmlFor="property-doc-upload">
               <Button
                 variant="contained"
                 component="span"
@@ -232,4 +231,4 @@ const FinancingTab = ({ prospectId, userProfile, context, isDeal }) => {
   );
 };
 
-export default FinancingTab;
+export default PropertyDetailsTab;

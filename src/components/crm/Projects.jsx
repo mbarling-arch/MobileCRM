@@ -1,29 +1,47 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   Box,
+  Typography,
+  Button,
   Card,
   CardContent,
-  Typography,
+  Tabs,
+  Tab,
+  Divider,
   Stack,
-  Button,
-  Chip
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Chip,
+  IconButton
 } from '@mui/material';
 import {
-  Folder as FolderIcon,
-  CheckCircle as CheckCircleIcon,
-  Schedule as ScheduleIcon,
   Add as AddIcon
 } from '@mui/icons-material';
+import PhoneOutlinedIcon from '@mui/icons-material/PhoneOutlined';
+import ChatOutlinedIcon from '@mui/icons-material/ChatOutlined';
+import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
+import EventOutlinedIcon from '@mui/icons-material/EventOutlined';
 import UnifiedLayout from '../UnifiedLayout';
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useUser } from '../../hooks/useUser';
+import AddProjectDrawer from './AddProjectDrawer';
+import { useNavigate } from 'react-router-dom';
 
 function Projects() {
   const { userProfile } = useUser();
+  const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
+  const [addDrawerOpen, setAddDrawerOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('all');
 
   const companyId = userProfile?.companyId || 'demo-company';
+  const locationId = userProfile?.locationId || 'demo-location';
+  const currentUserEmail = userProfile?.email || userProfile?.firebaseUser?.email;
 
   useEffect(() => {
     const col = collection(db, 'companies', companyId, 'projects');
@@ -35,157 +53,103 @@ function Projects() {
     return () => unsub();
   }, [companyId]);
 
-  const projectStats = {
-    total: projects.length,
-    active: projects.filter(p => p.status !== 'completed').length,
-    completed: projects.filter(p => p.status === 'completed').length,
-    overdue: projects.filter(p => {
-      if (p.status === 'completed' || !p.dueDate) return false;
-      const dueDate = p.dueDate?.toDate ? p.dueDate.toDate() : new Date(p.dueDate);
-      return dueDate < new Date();
-    }).length
+  const myProjects = useMemo(() => projects.filter(p => p.createdBy === currentUserEmail), [projects, currentUserEmail]);
+  const teamProjects = useMemo(() => projects.filter(p => p.createdBy && p.createdBy !== currentUserEmail), [projects, currentUserEmail]);
+  const rowsForTab = activeTab === 'my' ? myProjects : activeTab === 'team' ? teamProjects : projects;
+
+  const getStatusLabel = (status) => {
+    const labels = {
+      'not_started': 'Not Started',
+      'in_progress': 'In Progress',
+      'on_market': 'On Market',
+      'under_contract': 'Under Contract',
+      'sold': 'Sold'
+    };
+    return labels[status] || status;
   };
 
-  const StatCard = ({ title, value, icon: Icon, color }) => (
-    <Card sx={{ flex: 1, minWidth: 200 }}>
-      <CardContent>
-        <Stack direction="row" alignItems="center" spacing={2}>
-          <Icon sx={{ fontSize: 40, color }} />
-          <Box>
-            <Typography variant="h4" sx={{ color, fontWeight: 'bold' }}>
-              {value}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {title}
-            </Typography>
-          </Box>
-        </Stack>
-      </CardContent>
-    </Card>
-  );
-
-  const ProjectCard = ({ project }) => {
-    const isOverdue = project.status !== 'completed' && project.dueDate && (
-      project.dueDate?.toDate ? project.dueDate.toDate() : new Date(project.dueDate)
-    ) < new Date();
-
-    return (
-      <Card sx={{
-        cursor: 'pointer',
-        '&:hover': { boxShadow: 3 },
-        border: isOverdue ? '1px solid #f44336' : '1px solid rgba(255,255,255,0.12)'
-      }}>
-        <CardContent>
-          <Stack spacing={1}>
-            <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-              <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                {project.name || 'Unnamed Project'}
-              </Typography>
-              <Chip
-                label={project.status || 'active'}
-                size="small"
-                color={project.status === 'completed' ? 'success' : 'primary'}
-                variant={project.status === 'completed' ? 'filled' : 'outlined'}
-              />
-            </Stack>
-
-            {project.description && (
-              <Typography variant="body2" color="text.secondary">
-                {project.description}
-              </Typography>
-            )}
-
-            <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
-              {project.dueDate && (
-                <Typography variant="caption" sx={{
-                  color: isOverdue ? 'error.main' : 'text.secondary',
-                  fontWeight: isOverdue ? 600 : 400
-                }}>
-                  Due: {new Date(project.dueDate?.toDate ? project.dueDate.toDate() : project.dueDate).toLocaleDateString()}
-                </Typography>
-              )}
-              {project.assignedTo && (
-                <Typography variant="caption" color="text.secondary">
-                  Assigned: {project.assignedTo}
-                </Typography>
-              )}
-            </Stack>
-          </Stack>
-        </CardContent>
-      </Card>
-    );
+  const getStatusColor = (status) => {
+    const colors = {
+      'not_started': 'default',
+      'in_progress': 'info',
+      'on_market': 'primary',
+      'under_contract': 'warning',
+      'sold': 'success'
+    };
+    return colors[status] || 'default';
   };
 
   return (
     <UnifiedLayout mode="crm">
       <Box sx={{ p: 3 }}>
-        <Stack spacing={3}>
-          {/* Header */}
-          <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Box>
-              <Typography variant="h4" gutterBottom>
-                Project Management
-              </Typography>
-              <Typography variant="body1" color="text.secondary">
-                Track and manage your projects
-              </Typography>
-            </Box>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 600 }}>Projects</Typography>
             <Button
               variant="contained"
               startIcon={<AddIcon />}
-              sx={{ minWidth: 140 }}
+            onClick={() => setAddDrawerOpen(true)}
             >
               New Project
             </Button>
           </Stack>
 
-          {/* Stats Cards */}
-          <Stack direction="row" spacing={3} sx={{ flexWrap: 'wrap' }}>
-            <StatCard
-              title="Total Projects"
-              value={projectStats.total}
-              icon={FolderIcon}
-              color="#2196f3"
-            />
-            <StatCard
-              title="Active Projects"
-              value={projectStats.active}
-              icon={ScheduleIcon}
-              color="#ff9800"
-            />
-            <StatCard
-              title="Completed"
-              value={projectStats.completed}
-              icon={CheckCircleIcon}
-              color="#4caf50"
-            />
+        <Card sx={{ backgroundColor: 'customColors.cardBackground', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 6px 18px rgba(0,0,0,0.35)' }}>
+          <CardContent>
+            <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)} textColor="primary" indicatorColor="primary" sx={{ mb: 1, '& .MuiTab-root': { fontWeight: 600 }, '& .MuiTabs-indicator': { height: 3 } }}>
+              <Tab label="ALL PROJECTS" value="all" />
+              <Tab label="MY PROJECTS" value="my" />
+              <Tab label="MY TEAM'S PROJECTS" value="team" />
+            </Tabs>
+            <Divider sx={{ mb: 2 }} />
+            <TableContainer>
+              <Table size="small" sx={{ '& thead th': { color: 'text.secondary', fontWeight: 600, borderBottomColor: 'divider' }, '& tbody td': { color: 'text.primary', borderBottomColor: 'divider' }, '& tbody tr:hover': { backgroundColor: 'action.hover' } }}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Address</TableCell>
+                    <TableCell>Lot Number</TableCell>
+                    <TableCell>Lot Size</TableCell>
+                    <TableCell>Home</TableCell>
+                    <TableCell>Land Owner</TableCell>
+                    <TableCell>Offline Date</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell align="right">Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {rowsForTab.map(project => (
+                    <TableRow key={project.id} hover onClick={(e) => { const t = e.target; if (t && t.closest && t.closest('a,button,[role="button"],svg')) return; navigate(`/crm/projects/${project.id}`); }} sx={{ cursor: 'pointer' }}>
+                      <TableCell>{project.address || '-'}</TableCell>
+                      <TableCell>{project.lotNumber || '-'}</TableCell>
+                      <TableCell>{project.lotSize ? `${project.lotSize} acres` : '-'}</TableCell>
+                      <TableCell>{project.homeDetails ? `${project.homeDetails.factory} ${project.homeDetails.model}` : '-'}</TableCell>
+                      <TableCell>{project.landOwner || '-'}</TableCell>
+                      <TableCell>{project.offlineDate || '-'}</TableCell>
+                      <TableCell><Chip size="small" label={getStatusLabel(project.propertyStatus)} color={getStatusColor(project.propertyStatus)} /></TableCell>
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          <IconButton size="small" title="Log Call"><PhoneOutlinedIcon fontSize="small" /></IconButton>
+                          <IconButton size="small" title="Message"><ChatOutlinedIcon fontSize="small" /></IconButton>
+                          <IconButton size="small" title="Task"><TaskAltOutlinedIcon fontSize="small" /></IconButton>
+                          <IconButton size="small" title="Calendar"><EventOutlinedIcon fontSize="small" /></IconButton>
           </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {rowsForTab.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>No projects to display.</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </CardContent>
+        </Card>
 
-          {/* Projects Grid */}
-          <Box>
-            <Typography variant="h6" gutterBottom>
-              Projects
-            </Typography>
-
-            {projects.length === 0 ? (
-              <Card sx={{ p: 4, textAlign: 'center' }}>
-                <Typography variant="body1" color="text.secondary">
-                  No projects yet. Create your first project to get started!
-                </Typography>
-              </Card>
-            ) : (
-              <Box sx={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-                gap: 2
-              }}>
-                {projects.map(project => (
-                  <ProjectCard key={project.id} project={project} />
-                ))}
-              </Box>
-            )}
-          </Box>
-        </Stack>
+        <AddProjectDrawer
+          open={addDrawerOpen}
+          onClose={() => setAddDrawerOpen(false)}
+        />
       </Box>
     </UnifiedLayout>
   );

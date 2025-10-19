@@ -6,7 +6,7 @@ import {
   saveCoBuyerInfo,
   saveFinancingData,
   saveCreditSnapshot,
-  convertProspectToDeal,
+  updateProspect,
   selectProspectById,
   selectProspectStatus,
   selectProspectError,
@@ -22,7 +22,7 @@ import {
   setDepositsError
 } from '../redux-store/slices/prospectSlice';
 import { db } from '../firebase';
-import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { collection, onSnapshot, orderBy, query, doc } from 'firebase/firestore';
 import { useUser } from './useUser';
 import {
   addCondition as addConditionAction,
@@ -53,7 +53,23 @@ export const useProspect = ({ prospectId, isDeal = false }) => {
       return;
     }
 
+    // Set up real-time listener for prospect document
+    const prospectRef = doc(db, 'companies', userProfile.companyId, 'prospects', prospectId);
+    const unsubscribe = onSnapshot(prospectRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const prospectData = {
+          id: docSnap.id,
+          ...docSnap.data()
+        };
+        // Update Redux store with latest data
+        dispatch(updateProspect(prospectData));
+      }
+    });
+
+    // Also do initial load
     dispatch(loadProspect({ prospectId, isDeal }));
+
+    return () => unsubscribe();
   }, [dispatch, prospectId, isDeal, userProfile?.companyId]);
 
   useEffect(() => {
@@ -61,8 +77,8 @@ export const useProspect = ({ prospectId, isDeal = false }) => {
       return;
     }
 
-    const collectionName = isDeal ? 'deals' : 'prospects';
-    const depositRef = collection(db, 'companies', userProfile.companyId, collectionName, prospectId, 'deposits');
+    // Always use prospects collection - deals are just prospects with stage !== 'discovery'
+    const depositRef = collection(db, 'companies', userProfile.companyId, 'prospects', prospectId, 'deposits');
     const depositQuery = query(depositRef, orderBy('createdAt', 'desc'));
 
     dispatch(setDepositsStatus({ prospectId, status: 'loading' }));
@@ -81,7 +97,7 @@ export const useProspect = ({ prospectId, isDeal = false }) => {
     );
 
     return () => unsubscribe();
-  }, [dispatch, prospectId, isDeal, userProfile?.companyId]);
+  }, [dispatch, prospectId, userProfile?.companyId]);
 
   const buyerInfo = prospect?.buyerInfo || {
     firstName: '',
@@ -164,7 +180,6 @@ export const useProspect = ({ prospectId, isDeal = false }) => {
           })
         ).unwrap(),
       saveCreditData: () => dispatch(saveCreditSnapshot({ prospectId, creditSnapshot: creditData, isDeal })).unwrap(),
-      convertToDeal: () => dispatch(convertProspectToDeal({ prospectId })).unwrap(),
       prospectId,
       isDeal,
       userProfile

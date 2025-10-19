@@ -39,7 +39,8 @@ function InventoryDialog({ open, onClose, onCreate, onSubmit, initial, mode: ini
     model: '',
     size: '',
     year: '',
-    bedBath: '',
+    bedrooms: '',
+    bathrooms: '',
     squareFeet: '',
     invoice: 0,
     markupPercent: 0,
@@ -331,10 +332,23 @@ function InventoryDialog({ open, onClose, onCreate, onSubmit, initial, mode: ini
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="B/B (Bed/Bath)"
-                value={form.bedBath}
-                onChange={handleChange('bedBath')}
-                placeholder="e.g., 3/2"
+                label="Bedrooms"
+                type="number"
+                value={form.bedrooms}
+                onChange={handleChange('bedrooms')}
+                placeholder="e.g., 3"
+                disabled={isReadOnly}
+              />
+            </Grid>
+
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Bathrooms"
+                type="number"
+                value={form.bathrooms}
+                onChange={handleChange('bathrooms')}
+                placeholder="e.g., 2"
                 disabled={isReadOnly}
               />
             </Grid>

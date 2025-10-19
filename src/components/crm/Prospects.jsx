@@ -30,7 +30,7 @@ import LeadAppointmentDrawer from './LeadAppointmentDrawer';
 import LeadFilterDrawer from './LeadFilterDrawer';
 import SaveListDialog from './SaveListDialog';
 import UnifiedLayout from '../UnifiedLayout';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, serverTimestamp, where } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useUser } from '../../hooks/useUser';
 import { getSourceMeta, getStatusMeta } from './LeadConstants';
@@ -76,7 +76,12 @@ function Prospects() {
     const col = collection(db, 'companies', companyId, 'prospects');
     const q = query(col, orderBy('createdAt', 'desc'));
     const unsub = onSnapshot(q, (snap) => {
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const data = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(p => {
+          const stage = p.stage || 'discovery'; // Default to discovery if no stage
+          return stage === 'discovery';
+        });
       setProspects(data);
     });
     return () => unsub();
@@ -185,7 +190,7 @@ function Prospects() {
           </Stack>
         </Stack>
 
-        <Card sx={{ backgroundColor: 'customColors.cardBackground', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 6px 18px rgba(0,0,0,0.35)' }}>
+        <Card sx={{ backgroundColor: 'customColors.cardBackground', border: '1px solid', borderColor: 'divider', boxShadow: '0 6px 18px rgba(0,0,0,0.35)' }}>
           <CardContent>
             <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)} textColor="primary" indicatorColor="primary" sx={{ mb: 1, '& .MuiTab-root': { fontWeight: 600 }, '& .MuiTabs-indicator': { height: 3 } }}>
               <Tab label="MY PROSPECTS" value="my" />
@@ -248,9 +253,9 @@ function ProspectTable({ rows, formatDate, getUserDisplayName, enableActions, on
       <Table
         size="small"
         sx={{
-          '& thead th': { color: 'rgba(255,255,255,0.9)', fontWeight: 600, borderBottomColor: 'rgba(255,255,255,0.08)' },
-          '& tbody td': { color: 'rgba(255,255,255,0.92)', borderBottomColor: 'rgba(255,255,255,0.06)' },
-          '& tbody tr:hover': { backgroundColor: 'rgba(255,255,255,0.04)' }
+          '& thead th': { color: 'text.secondary', fontWeight: 600, borderBottomColor: 'divider' },
+          '& tbody td': { color: 'text.primary', borderBottomColor: 'divider' },
+          '& tbody tr:hover': { backgroundColor: 'action.hover' }
         }}
       >
         <TableHead>
